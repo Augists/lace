@@ -46,7 +46,7 @@ def run_item_file(name, args, workers, filename, dry=False, fresh=False):
     if dry: return None
 
     if not os.path.isfile(args[0]):
-        print("Program {} does not exist!".format(args[0]))
+        print("Program {} does not exist (experiment {})!".format(args[0], name))
         return None
 
     print("Performing {}-{}... ".format(name, workers), end='')
@@ -165,28 +165,72 @@ if __name__ == "__main__":
     # determine number of cores
     max_cores = multiprocessing.cpu_count()
 
-    for w in (1,2,max_cores):
+    for w in (1,4,max_cores):
         if os.path.isfile('fib-lace'):
             experiments.append(("fib",("./fib-lace", "-w", str(w), "46"), w))
         if os.path.isfile('uts-lace'):
             experiments.append(("uts-t2l",["./uts-lace", "-w", str(w)] + globals()["T2L"].split(), w))
             experiments.append(("uts-t3l",["./uts-lace", "-w", str(w)] + globals()["T3L"].split(), w))
-        if os.path.isfile('queens-lace'):
-            experiments.append(("queens",("./queens-lace", "-w", str(w), "14"), w))
+        if os.path.isfile('nqueens-lace'):
+            experiments.append(("nqueens",("./nqueens-lace", "-w", str(w), "14"), w))
         if os.path.isfile('matmul-lace'):
             experiments.append(("matmul",("./matmul-lace", "-w", str(w), "2048"), w))
+        if os.path.isfile('cholesky-lace'):
+            experiments.append(("cholesky",("./cholesky-lace", "-w", str(w), "4000", "40000"), w))
+        if os.path.isfile('integrate-lace'):
+            experiments.append(("integrate",("./integrate-lace", "-w", str(w), "10000"), w))
+        if os.path.isfile('heat-lace'):
+            experiments.append(("heat",("./heat-lace", "-w", str(w)), w))
+        if os.path.isfile('cilksort-lace'):
+            experiments.append(("cilksort",("./cilksort-lace", "-w", str(w)), w))
+        if os.path.isfile('fft-lace'):
+            experiments.append(("fft",("./fft-lace", "-w", str(w)), w))
+        if os.path.isfile('knapsack-lace'):
+            experiments.append(("knapsack",("./knapsack-lace", "-w", str(w)), w))
+        if os.path.isfile('lu-lace'):
+            experiments.append(("lu",("./lu-lace", "-w", str(w)), w))
+        if os.path.isfile('pi-lace'):
+            experiments.append(("pi",("./pi-lace", "-w", str(w)), w))
+        if os.path.isfile('quicksort-lace'):
+            experiments.append(("quicksort",("./quicksort-lace", "-w", str(w)), w))
+        if os.path.isfile('rectmul-lace'):
+            experiments.append(("rectmul",("./rectmul-lace", "-w", str(w)), w))
+        if os.path.isfile('strassen-lace'):
+            experiments.append(("strassen",("./strassen-lace", "-w", str(w)), w))
 
     if os.path.isfile('fib-seq'):
         experiments.append(("fib-seq",("./fib-seq", "46"), 1))
     if os.path.isfile('uts-seq'):
         experiments.append(("uts-t2l-seq",["./uts-seq"] + globals()["T2L"].split(), 1))
         experiments.append(("uts-t3l-seq",["./uts-seq"] + globals()["T3L"].split(), 1))
-    if os.path.isfile('queens-seq'):
-        experiments.append(("queens-seq",("./queens-seq", "14"), 1))
+    if os.path.isfile('nqueens-seq'):
+        experiments.append(("nqueens-seq",("./nqueens-seq", "14"), 1))
     if os.path.isfile('matmul-seq'):
         experiments.append(("matmul-seq",("./matmul-seq", "2048"), 1))
+    if os.path.isfile('cholesky-seq'):
+        experiments.append(("cholesky-seq",("./cholesky-seq", "4000", "40000"), 1))
+    if os.path.isfile('integrate-seq'):
+        experiments.append(("integrate-seq",("./integrate-seq", "10000"), 1))
+    if os.path.isfile('heat-seq'):
+        experiments.append(("heat-seq",("./heat-seq",), 1))
+    if os.path.isfile('cilksort-seq'):
+        experiments.append(("cilksort-seq",("./cilksort-seq",), 1))
+    if os.path.isfile('fft-seq'):
+        experiments.append(("fft-seq",("./fft-seq",), 1))
+    if os.path.isfile('knapsack-seq'):
+        experiments.append(("knapsack-seq",("./knapsack-seq",), 1))
+    if os.path.isfile('lu-seq'):
+        experiments.append(("lu-seq",("./lu-seq",), 1))
+    if os.path.isfile('pi-seq'):
+        experiments.append(("pi-seq",("./pi-seq",), 1))
+    if os.path.isfile('quicksort-seq'):
+        experiments.append(("quicksort-seq",("./quicksort-seq",), 1))
+    if os.path.isfile('rectmul-seq'):
+        experiments.append(("rectmul-seq",("./rectmul-seq",), 1))
+    if os.path.isfile('strassen-seq'):
+        experiments.append(("strassen-seq",("./strassen-seq",), 1))
 
-    outdir = 'exp-out'
+    outdir = sys.argv[1] if len(sys.argv) > 1 else 'exp-out'
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)

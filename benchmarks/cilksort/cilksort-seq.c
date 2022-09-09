@@ -419,18 +419,22 @@ void fill_array(ELM *arr, unsigned long size)
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s <n>\n", s);
+    fprintf(stderr, "Usage: %s <n>\n", s);
     fprintf(stderr, "Typical values of n: 10000, 3000000, 4100000\n");
 }
 
 int main(int argc, char *argv[])
 {
+    long size;
     if (argc == 1) {
+        size = 100000000L;
+    } else if (argc != 2) {
         usage(argv[0]);
         exit(1);
+    } else {
+        size = atol(argv[1]);
     }
 
-    long size = atol(argv[1]);
     ELM *array = (ELM*)malloc((1+size) * sizeof(ELM));
     ELM *tmp = (ELM*)malloc((1+size) * sizeof(ELM));
 
@@ -438,14 +442,18 @@ int main(int argc, char *argv[])
     sprintf(filename, "cilksort-%ld.data", size);
     FILE *f = fopen(filename, "r");
     if (f != NULL) {
+        printf("Reading data from file...\n");
         if (fread(array, sizeof(ELM), size, f) != (unsigned)size) exit(1);
         fclose(f);
     } else {
+        printf("Generating data...\n");
         fill_array(array, size);
         f = fopen(filename, "w");
         fwrite(array, sizeof(ELM), size, f);
         fclose(f);
     }
+
+    printf("Running cilksort n=%ld sequentially...\n", size);
 
     double t1 = wctime();
     cilksort(array, tmp, size);

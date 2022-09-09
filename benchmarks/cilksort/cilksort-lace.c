@@ -429,12 +429,13 @@ void fill_array(ELM *arr, unsigned long size)
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
+    fprintf(stderr, "%s [-w <workers>] [-q dqsize] <n>\n", s);
     fprintf(stderr, "Typical values of n: 10000, 3000000, 4100000\n");
 }
 
 int main(int argc, char *argv[])
 {
+    long size = 100000000L;
     int workers = 1;
     int dqsize = 100000;
 
@@ -456,11 +457,14 @@ int main(int argc, char *argv[])
     }
 
     if (optind == argc) {
+        size = 100000000L;
+    } else if ((optind+1) != argc) {
         usage(argv[0]);
         exit(1);
+    } else {
+        size = atol(argv[optind]);
     }
 
-    long size = atol(argv[optind]);
     ELM *array = (ELM*)malloc((1+size) * sizeof(ELM));
     ELM *tmp = (ELM*)malloc((1+size) * sizeof(ELM));
 
@@ -468,9 +472,11 @@ int main(int argc, char *argv[])
     sprintf(filename, "cilksort-%ld.data", size);
     FILE *f = fopen(filename, "r");
     if (f != NULL) {
+        printf("Reading data from file...\n");
         if (fread(array, sizeof(ELM), size, f) != (unsigned)size) exit(1);
         fclose(f);
     } else {
+        printf("Generating data...\n");
         fill_array(array, size);
         f = fopen(filename, "w");
         fwrite(array, sizeof(ELM), size, f);
@@ -478,6 +484,8 @@ int main(int argc, char *argv[])
     }
 
     lace_start(workers, dqsize);
+
+    printf("Running cilksort n=%ld with %u workers...\n", size, lace_workers());
 
     double t1 = wctime();
     RUN(cilksort, array, tmp, size);

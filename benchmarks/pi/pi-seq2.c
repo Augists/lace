@@ -42,17 +42,19 @@ double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s <n>\n", s);
+    fprintf(stderr, "Usage: %s <n>\n", s);
 }
 
 int main(int argc, char **argv)
 {
-    if (argc <= 1) {
+    long n = 500000000L;
+
+    if (argc > 1) {
         usage(argv[0]);
         exit(1);
+    } else {
+        n = atol(argv[1]);
     }
-
-    long n = atol(argv[1]);
 
     double t1 = wctime();
     double pi = 4.0*(double)pi_mc(0, n)/n;

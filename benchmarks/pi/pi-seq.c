@@ -30,17 +30,23 @@ rng(uint32_t *seed, int max)
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s <n>\n", s);
+    fprintf(stderr, "Usage: %s <n>\n", s);
 }
 
 int main(int argc, char **argv)
 {
-    if (argc <= 1) {
+    long n = 500000000L;
+
+    if (argc == 1) {
+        n = 500000000L;
+    } else if (argc > 2) {
         usage(argv[0]);
         exit(1);
+    } else {
+        n = atol(argv[1]);
     }
 
-    const long n = atol(argv[1]);
+    printf("Running pi n=%ld sequentially...\n", n);
 
     double x, y;
     uint64_t count = 0;

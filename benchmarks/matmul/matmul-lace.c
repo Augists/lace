@@ -113,11 +113,12 @@ VOID_TASK_8(rec_matmul, REAL*, A, REAL*, B, REAL*, C, int, m, int, n, int, p, in
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
+    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] <n>\n", s);
 }
 
 int main(int argc, char *argv[])
 {
+    int n = 2048;
     int workers = 1;
     int dqsize = 100000;
 
@@ -139,11 +140,13 @@ int main(int argc, char *argv[])
     }
 
     if (optind == argc) {
+        n = 2048;
+    } else if ((optind+1) != argc) {
         usage(argv[0]);
         exit(1);
+    } else {
+        n = atoi(argv[optind]);
     }
-
-    int n = atoi(argv[optind]);
 
     REAL *A  = malloc(n * n * sizeof(REAL));
     REAL *B  = malloc(n * n * sizeof(REAL));
@@ -157,17 +160,18 @@ int main(int argc, char *argv[])
 
     lace_start(workers, dqsize);
 
+    printf("Running matmul n=%d with %u worker(s)...\n", n, lace_workers());
+
     double t1 = wctime();
     RUN(rec_matmul, A, B, C2, n, n, n, n, 0); 
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);
-/*
-    iter_matmul(A, B, C1, n);
-    double err = maxerror(C1, C2, n);
 
-    printf("Max error matmul(%d x %d) = %g\n", n, n, err);
-*/
+    //iter_matmul(A, B, C1, n);
+    //double err = maxerror(C1, C2, n);
+    //printf("Max error matmul(%d x %d) = %g\n", n, n, err);
+
     lace_stop();
 
     free(C2);

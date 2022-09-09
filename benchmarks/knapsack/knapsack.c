@@ -28,16 +28,15 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+#include <getopt.h>
 #include <time.h>
-#include <lace.h>
-
-#define __SYNC
-//#define __PRUNE
 
 struct item {
     int value;
     int weight;
 };
+
+//#define __PRUNE
 
 int n = 32;
 static int capacity = 900;
@@ -96,7 +95,7 @@ static int compare(struct item *a, struct item *b)
  * return the optimal solution for n items (first is e) and
  * capacity c. Value so far is v.
  */
-TASK_4(int, knapsack, struct item *,e, int, c, int, n, int, v)
+int knapsack(struct item *e, int c, int n, int v)
 {
     int with, without, best;
 
@@ -108,32 +107,23 @@ TASK_4(int, knapsack, struct item *,e, int, c, int, n, int, v)
         return v;		/* feasible solution, with value v */
 
 #ifdef __PRUNE
-#ifdef __SYNC
     double ub = (double) v + c * e->value / e->weight;
-    if (ub < __atomic_load_n(&best_so_far, __ATOMIC_ACQUIRE)) {
-        /* prune ! */
-        return INT_MIN;
-    }
-#else
     if (ub < best_so_far) {
         /* prune ! */
         return INT_MIN;
     }
 #endif
-#endif
 
 #ifdef __REVERSE_EXEC_ORDER
     /* compute the best solution with the current item in the knapsack */
-    SPAWN(knapsack, e + 1, c - e->weight, n - 1, v + e->value);
+    with = knapsack(e + 1, c - e->weight, n - 1, v + e->value);
     /* compute the best solution without the current item in the knapsack */
-    without = CALL(knapsack, e + 1, c, n - 1, v);
-    with = SYNC(knapsack);
+    without = knapsack(e + 1, c, n - 1, v);
 #else
     /* compute the best solution without the current item in the knapsack */
-    SPAWN(knapsack, e + 1, c, n - 1, v);
+    without = knapsack(e + 1, c, n - 1, v);
     /* compute the best solution with the current item in the knapsack */
-    with = CALL(knapsack, e + 1, c - e->weight, n - 1, v + e->value);
-    without = SYNC(knapsack);
+    with = knapsack(e + 1, c - e->weight, n - 1, v + e->value);
 #endif
 
     best = with > without ? with : without;
@@ -145,16 +135,8 @@ TASK_4(int, knapsack, struct item *,e, int, c, int, n, int, v)
      * when returning, so eventually it should get the right
      * value. The program is highly non-deterministic.
      */
-#ifdef __SYNC
-    int bsf = __atomic_load_n(&best_so_far, __ATOMIC_ACQUIRE);
-    do {
-        if (bsf >= best)
-            break;
-    } while (!__atomic_compare_exchange_n(&best_so_far, &bsf, best, 0, __ATOMIC_RELEASE, __ATOMIC_ACQUIRE));
-#else
     if (best > best_so_far)
         best_so_far = best;
-#endif
 
     return best;
 }
@@ -168,11 +150,7 @@ void init()
 
 void prep()
 {
-#ifdef __SYNC
-    __atomic_store_n(&best_so_far, INT_MIN, __ATOMIC_RELEASE);
-#else
     best_so_far = INT_MIN;
-#endif
 }
 
 static double wctime() 
@@ -184,23 +162,14 @@ static double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "Usage: %s [-w <workers>] [-q dqsize]\n", s);
+    fprintf(stderr, "Usage: %s\n", s);
 }
 
 int main(int argc, char *argv[])
 {
-    int workers = 1;
-    int dqsize = 100000;
-
     char c;
     while ((c=getopt(argc, argv, "w:q:h")) != -1) {
         switch (c) {
-            case 'w':
-                workers = atoi(optarg);
-                break;
-            case 'q':
-                dqsize = atoi(optarg);
-                break;
             case 'h':
                 usage(argv[0]);
                 break;
@@ -209,19 +178,17 @@ int main(int argc, char *argv[])
         }
     }
 
-    lace_start(workers, dqsize);
+    printf("Running knapsack sequentially...\n");
 
     init();
     prep();
 
     double t1 = wctime();
-    sol = RUN(knapsack, items, capacity, n, 0);
+    sol = knapsack(items, capacity, n, 0);
     double t2 = wctime();
 
     printf("Best value is %d\n", sol);
     printf("Time: %f\n", t2-t1);
-
-    lace_stop();
 
     return 0;
 }

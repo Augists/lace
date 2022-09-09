@@ -27,7 +27,6 @@
  *  
  */
 
-#include "lace14.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,13 +36,6 @@
 #define SizeAtWhichDivideAndConquerIsMoreEfficient 16
 #define SizeAtWhichNaiveAlgorithmIsMoreEfficient 8
 #define CacheBlockSizeInBytes 32
-
-double wctime() 
-{
-    struct timespec tv;
-    clock_gettime(CLOCK_MONOTONIC, &tv);
-    return (tv.tv_sec + 1E-9 * tv.tv_nsec);
-}
 
 /* The real numbers we are using --- either double or float */
 typedef double REAL;
@@ -412,11 +404,11 @@ void MultiplyByDivideAndConquer(REAL *C, REAL *A, REAL *B,
  **    C = (*C WRITE) Matrix C contains A x B. (Initial value of *C undefined.)
  **
  *****************************************************************************/
-VOID_TASK_7(OptimizedStrassenMultiply, REAL *, C, REAL *, A, REAL *, B,
-        unsigned, MatrixSize,
-        unsigned, RowWidthC,
-        unsigned, RowWidthA,
-        unsigned, RowWidthB
+void OptimizedStrassenMultiply(REAL * C, REAL * A, REAL * B,
+        unsigned MatrixSize,
+        unsigned RowWidthC,
+        unsigned RowWidthA,
+        unsigned RowWidthB
         )
 {
     unsigned QuadrantSize = MatrixSize >> 1; /* MatixSize / 2 */
@@ -543,44 +535,25 @@ VOID_TASK_7(OptimizedStrassenMultiply, REAL *, C, REAL *, A, REAL *, B,
     } /* end column loop */
 
     /* M2 = A11 x B11 */
-    SPAWN(OptimizedStrassenMultiply, M2, A11, B11, QuadrantSize,
-            QuadrantSize, RowWidthA, RowWidthB);
+    OptimizedStrassenMultiply(M2, A11, B11, QuadrantSize, QuadrantSize, RowWidthA, RowWidthB);
 
     /* M5 = S1 * S5 */
-    SPAWN(OptimizedStrassenMultiply, M5, S1, S5, QuadrantSize,
-            QuadrantSize, QuadrantSize, QuadrantSize);
+    OptimizedStrassenMultiply(M5, S1, S5, QuadrantSize, QuadrantSize, QuadrantSize, QuadrantSize);
 
     /* Step 1 of T1 = S2 x S6 + M2 */
-    SPAWN(OptimizedStrassenMultiply, T1sMULT, S2, S6,  QuadrantSize,
-            QuadrantSize, QuadrantSize, QuadrantSize);
+    OptimizedStrassenMultiply(T1sMULT, S2, S6,  QuadrantSize, QuadrantSize, QuadrantSize, QuadrantSize);
 
     /* Step 1 of T2 = T1 + S3 x S7 */
-    SPAWN(OptimizedStrassenMultiply, C22, S3, S7, QuadrantSize,
-            RowWidthC /*FIXME*/, QuadrantSize, QuadrantSize);
+    OptimizedStrassenMultiply(C22, S3, S7, QuadrantSize, RowWidthC /*FIXME*/, QuadrantSize, QuadrantSize);
 
     /* Step 1 of C11 = M2 + A12 * B21 */
-    SPAWN(OptimizedStrassenMultiply, C11, A12, B21, QuadrantSize,
-            RowWidthC, RowWidthA, RowWidthB);
+    OptimizedStrassenMultiply(C11, A12, B21, QuadrantSize, RowWidthC, RowWidthA, RowWidthB);
 
     /* Step 1 of C12 = S4 x B22 + T1 + M5 */
-    SPAWN(OptimizedStrassenMultiply, C12, S4, B22, QuadrantSize,
-            RowWidthC, QuadrantSize, RowWidthB);
+    OptimizedStrassenMultiply(C12, S4, B22, QuadrantSize, RowWidthC, QuadrantSize, RowWidthB);
 
     /* Step 1 of C21 = T2 - A22 * S8 */
-    SPAWN(OptimizedStrassenMultiply, C21, A22, S8, QuadrantSize,
-            RowWidthC, RowWidthA, QuadrantSize);
-
-    /**********************************************
-     ** Synchronization Point
-     **********************************************/
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-    SYNC(OptimizedStrassenMultiply);
-
+    OptimizedStrassenMultiply(C21, A22, S8, QuadrantSize, RowWidthC, RowWidthA, QuadrantSize);
 
     /***************************************************************************
      ** Step through all columns row by row (vertically)
@@ -705,29 +678,28 @@ REAL *alloc_matrix(int n)
  }
  */
 
+static double wctime() 
+{
+    struct timespec tv;
+    clock_gettime(CLOCK_MONOTONIC, &tv);
+    return (tv.tv_sec + 1E-9 * tv.tv_nsec);
+}
+
 void usage(char *s)
 {
-    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] [-c] <n>\n", s);
+    fprintf(stderr, "Usage: %s [-c] <n>\n", s);
     fprintf(stderr, "Multiplies two randomly generated n x n matrices. To check for\n");
     fprintf(stderr, "correctness use -c.\n\n");
 }
 
 int main(int argc, char *argv[])
 {
-    int workers = 1;
-    int dqsize = 100000;
     int verify = 0;
     int n = 4096;
 
     char c;
     while ((c=getopt(argc, argv, "w:q:h:c")) != -1) {
         switch (c) {
-            case 'w':
-                workers = atoi(optarg);
-                break;
-            case 'q':
-                dqsize = atoi(optarg);
-                break;
             case 'c':
                 verify = 1;
                 break;
@@ -748,8 +720,6 @@ int main(int argc, char *argv[])
         n = atoi(argv[optind]);
     }
 
-    lace_start(workers, dqsize);
-
     REAL *A, *B, *C1, *C2;
 
     if ((n & (n - 1)) != 0 || (n % 16) != 0) {
@@ -766,10 +736,10 @@ int main(int argc, char *argv[])
     init_matrix(n, A, n);
     init_matrix(n, B, n);
 
-    printf("Running strassen n=%d with %u worker(s)...\n", n, lace_workers());
+    printf("Running strassen n=%d sequentially...\n", n);
 
     double t1=wctime();
-    RUN(OptimizedStrassenMultiply, C2, A, B, n, n, n, n);
+    OptimizedStrassenMultiply(C2, A, B, n, n, n, n);
     double t2=wctime();
 
     if (verify) {
@@ -782,8 +752,6 @@ int main(int argc, char *argv[])
     else {	
         printf("Time: %f\n", t2-t1);
     }
-
-    lace_stop();
 
     return 0;
 }

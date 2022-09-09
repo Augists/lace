@@ -47,11 +47,12 @@ double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
+    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] <n>\n", s);
 }
 
 int main(int argc, char **argv)
 {
+    long n = 500000000L;
     int workers = 0;
     int dqsize = 1000000;
 
@@ -73,19 +74,22 @@ int main(int argc, char **argv)
     }
 
     if (optind == argc) {
+        n = 500000000L;
+    } else if ((optind+1) != argc) {
         usage(argv[0]);
         exit(1);
+    } else {
+        n = atol(argv[optind]);
     }
 
     lace_start(workers, dqsize);
 
-    long n = atol(argv[optind]);
+    printf("Running pi n=%ld with %u worker(s)...\n" , n, lace_workers());
 
     double t1 = wctime();
     double pi = 4.0*(double)RUN(pi_mc, 0, n)/n;
     double t2 = wctime();
 
-    printf("With %u workers:\n", lace_workers());
     printf("pi(%ld) = %.12lf (accuracy: %.12lf)\n", n, pi, fabs(M_PI-pi)/M_PI);
     printf("Time: %f\n", t2-t1);
 

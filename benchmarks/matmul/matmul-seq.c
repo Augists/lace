@@ -109,7 +109,7 @@ void rec_matmul(REAL* A, REAL* B, REAL* C, int m, int n, int p, int ld, int add)
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
+    fprintf(stderr, "Usage: %s <n>\n", s);
 }
 
 int main(int argc, char *argv[])
@@ -125,12 +125,17 @@ int main(int argc, char *argv[])
         }
     }
 
+    int n;
     if (optind == argc) {
+        n = 2048;
+    } else if ((optind+1) != argc) {
         usage(argv[0]);
         exit(1);
+    } else {
+        n = atoi(argv[optind]);
     }
 
-    int n = atoi(argv[optind]);
+    printf("Running matmul n=%d sequentially...\n", n);
 
     REAL *A  = malloc(n * n * sizeof(REAL));
     REAL *B  = malloc(n * n * sizeof(REAL));

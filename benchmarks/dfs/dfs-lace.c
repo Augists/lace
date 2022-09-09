@@ -42,7 +42,7 @@ double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <depth> <width> <grain> <reps>\n", s);
+    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] <depth> <width> <grain> <reps>\n", s);
 }
 
 int main(int argc, char **argv)
@@ -82,6 +82,7 @@ int main(int argc, char **argv)
     m = atoi(argv[optind+3]);
 
     printf("Running depth first search on %d balanced trees with depth %d, width %d, grain %d.\n", m, d, w, n);
+    printf("Running with %u worker(s)...\n", lace_workers());
 
     double t1 = wctime();
     int i;

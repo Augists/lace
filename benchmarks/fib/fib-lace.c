@@ -26,7 +26,7 @@ double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
+    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] <n>\n", s);
 }
 
 int main(int argc, char **argv)
@@ -59,6 +59,8 @@ int main(int argc, char **argv)
     lace_start(workers, dqsize);
 
     int n = atoi(argv[optind]);
+
+    printf("Running fibonacci n=%d with %u worker(s)...\n", n, lace_workers());
 
     double t1 = wctime();
     int m = RUN(pfib, n);
