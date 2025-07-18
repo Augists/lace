@@ -891,24 +891,25 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     if (stacksize != 0) {
         pthread_attr_setstacksize(&worker_attr, stacksize);
     } else {
-	// on certain systems, the default stack size is too small (e.g. OSX)
-	// so by default, we just pick the current RLIMIT_STACK or 16M whichever is smallest
+        // on certain systems, the default stack size is too small (e.g. OSX)
+        // so by default, we just pick the current RLIMIT_STACK or 16M whichever is greatest
 #ifndef _WIN32
-	struct rlimit lim;
-	getrlimit(RLIMIT_STACK, &lim);
-	size_t size = lim.rlim_cur;
-	if (size > 16*1024*1024) size = 16*1024*1024;
+        struct rlimit lim;
+        getrlimit(RLIMIT_STACK, &lim);
+        size_t size = lim.rlim_cur;
+        if (size < 16*1024*1024) size = 16*1024*1024;
 #else
-	size_t size = 16*1024*1024;
+        size_t size = 16*1024*1024;
 #endif
         pthread_attr_setstacksize(&worker_attr, size);
+        stacksize = size;
     }
 
     if (verbosity) {
 #if LACE_USE_HWLOC
-        fprintf(stdout, "Initializing Lace, %u nodes, %u cores, %u logical processors, %d workers.\n", n_nodes, n_cores, n_pus, n_workers);
+        fprintf(stdout, "Lace startup: %u nodes, %u cores, %u logical processors, %d workers.\n", n_nodes, n_cores, n_pus, n_workers);
 #else
-        fprintf(stdout, "Initializing Lace, %u available cores, %d workers.\n", n_pus, n_workers);
+        fprintf(stdout, "Lace startup: %u available cores, %d workers.\n", n_pus, n_workers);
 #endif
     }
 
@@ -923,7 +924,7 @@ lace_start(unsigned int _n_workers, size_t dqsize)
 
     /* Report startup if verbose */
     if (verbosity) {
-        fprintf(stdout, "Lace startup, creating %d worker threads with program stack %zu bytes.\n", n_workers, stacksize);
+        fprintf(stdout, "Lace startup: creating %d worker threads with program stack %zu bytes.\n", n_workers, stacksize);
     }
 
     /* Spawn all workers */
