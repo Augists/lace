@@ -247,7 +247,7 @@ int check_matrix(block * R, long x, long y, long o, double v)
  *
  */
 VOID_TASK_6(add_matrix, block*, T, long, ot, block*, R, long, oR, long, x, long, y)
-void add_matrix(block* T, long ot, block* R, long oR, long x, long y)
+void add_matrix(LaceWorker* worker, block* T, long ot, block* R, long oR, long x, long y)
 {
     if (x + y == 2) {
         long i;
@@ -261,13 +261,13 @@ void add_matrix(block* T, long ot, block* R, long oR, long x, long y)
     }
 
     if (x > y) {
-        add_matrix_SPAWN(T, ot, R, oR, x/2, y);
-        add_matrix(T+(x/2)*ot, ot, R+(x/2)*oR, oR, (x+1)/2, y);
-        add_matrix_SYNC();
+        add_matrix_SPAWN(worker, T, ot, R, oR, x/2, y);
+        add_matrix(worker, T+(x/2)*ot, ot, R+(x/2)*oR, oR, (x+1)/2, y);
+        add_matrix_SYNC(worker);
     } else {
-        add_matrix_SPAWN(T, ot, R, oR, x, y/2);
-        add_matrix(T+(y/2), ot, R+(y/2), oR, x, (y+1)/2);
-        add_matrix_SYNC();
+        add_matrix_SPAWN(worker, T, ot, R, oR, x, y/2);
+        add_matrix(worker, T+(y/2), ot, R+(y/2), oR, x, (y+1)/2);
+        add_matrix_SYNC(worker);
     }
 }
 
@@ -290,7 +290,7 @@ void init_matrix(block * R, long x, long y, long o, double v)
 }
 
 VOID_TASK_10(multiply_matrix, block*, A, long, oa, block*, B, long, ob, long, x, long, y, long, z, block*, R, long, oR, int, add)
-void multiply_matrix(block* A, long oa, block* B, long ob, long x, long y, long z, block* R, long oR, int add)
+void multiply_matrix(LaceWorker* worker, block* A, long oa, block* B, long ob, long x, long y, long z, block* R, long oR, int add)
 {
     if (x + y + z == 3) {
         if (add) {
@@ -302,22 +302,22 @@ void multiply_matrix(block* A, long oa, block* B, long ob, long x, long y, long 
     }
 
     if (x >= y && x >= z) {
-        multiply_matrix_SPAWN(A, oa, B, ob, x/2, y, z, R, oR, add);
-        multiply_matrix(A+(x/2)*oa, oa, B, ob, (x+1)/2, y, z, R+(x/2)*oR, oR, add);
-        multiply_matrix_SYNC();
+        multiply_matrix_SPAWN(worker, A, oa, B, ob, x/2, y, z, R, oR, add);
+        multiply_matrix(worker, A+(x/2)*oa, oa, B, ob, (x+1)/2, y, z, R+(x/2)*oR, oR, add);
+        multiply_matrix_SYNC(worker);
     } else if (y > x && y > z) {
-        multiply_matrix_SPAWN(A+(y/2), oa, B+(y/2)*ob, ob, x, (y+1)/2, z, R, oR, add);
+        multiply_matrix_SPAWN(worker, A+(y/2), oa, B+(y/2)*ob, ob, x, (y+1)/2, z, R, oR, add);
 
         block * tmp = malloc(x * z * sizeof(block));
-        multiply_matrix(A, oa, B, ob, x, y/2, z, tmp, z, 0);
-        multiply_matrix_SYNC();
+        multiply_matrix(worker, A, oa, B, ob, x, y/2, z, tmp, z, 0);
+        multiply_matrix_SYNC(worker);
 
-        add_matrix(tmp, z, R, oR, x, z);
+        add_matrix(worker, tmp, z, R, oR, x, z);
         free(tmp);
     } else {
-        multiply_matrix_SPAWN(A, oa, B, ob, x, y, z/2, R, oR, add);
-        multiply_matrix(A, oa, B+(z/2), ob, x, y, (z+1)/2, R+(z/2), oR, add);
-        multiply_matrix_SYNC();
+        multiply_matrix_SPAWN(worker, A, oa, B, ob, x, y, z/2, R, oR, add);
+        multiply_matrix(worker, A, oa, B+(z/2), ob, x, y, (z+1)/2, R+(z/2), oR, add);
+        multiply_matrix_SYNC(worker);
     }
 }
 

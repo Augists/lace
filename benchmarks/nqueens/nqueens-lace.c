@@ -10,7 +10,7 @@
  */
 TASK_4(long, nqueens, const int*, a, int, n, int, d, int, i)
 
-long nqueens(const int* a, int n, int d, int i)
+long nqueens(LaceWorker* worker, const int* a, int n, int d, int i)
 {
     // copy queens from a to new array aa and check if ok
     int aa[d + 1];
@@ -32,13 +32,13 @@ long nqueens(const int* a, int n, int d, int i)
 
     // if not reached, place the next queen recursively
     for (int k = 0; k<n; k++) {
-        nqueens_SPAWN(aa, n, d, k);
+        nqueens_SPAWN(worker, aa, n, d, k);
     }
 
     // and return the sum of the recursive counts
     long sum = 0;
     for (int k=0; k<n; k++) {
-        sum += nqueens_SYNC();
+        sum += nqueens_SYNC(worker);
     }
     return sum;
 }

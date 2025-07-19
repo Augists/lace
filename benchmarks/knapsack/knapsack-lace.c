@@ -98,7 +98,7 @@ static int compare(struct item *a, struct item *b)
  */
 TASK_4(int, knapsack, struct item *, e, int, c, int, n, int, v)
 
-int knapsack(struct item *e, int c, int n, int v)
+int knapsack(LaceWorker* worker, struct item *e, int c, int n, int v)
 {
     int with, without, best;
 
@@ -126,16 +126,16 @@ int knapsack(struct item *e, int c, int n, int v)
 
 #ifdef __REVERSE_EXEC_ORDER
     /* compute the best solution with the current item in the knapsack */
-    knapsack_SPAWN(e + 1, c - e->weight, n - 1, v + e->value);
+    knapsack_SPAWN(worker, e + 1, c - e->weight, n - 1, v + e->value);
     /* compute the best solution without the current item in the knapsack */
-    without = knapsack(e + 1, c, n - 1, v);
-    with = knapsack_SYNC();
+    without = knapsack(worker, e + 1, c, n - 1, v);
+    with = knapsack_SYNC(worker);
 #else
     /* compute the best solution without the current item in the knapsack */
-    knapsack_SPAWN(e + 1, c, n - 1, v);
+    knapsack_SPAWN(worker, e + 1, c, n - 1, v);
     /* compute the best solution with the current item in the knapsack */
-    with = knapsack(e + 1, c - e->weight, n - 1, v + e->value);
-    without = knapsack_SYNC();
+    with = knapsack(worker, e + 1, c - e->weight, n - 1, v + e->value);
+    without = knapsack_SYNC(worker);
 #endif
 
     best = with > without ? with : without;

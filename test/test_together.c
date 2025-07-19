@@ -6,44 +6,44 @@
 VOID_TASK_1(test_together, int, depth);
 VOID_TASK_1(test_newframe, int, depth);
 
-void test_together(int depth)
+void test_together(LaceWorker* worker, int depth)
 {
     if (depth != 0) {
-        test_together_SPAWN(depth-1);
-        test_together_SPAWN(depth-1);
-        test_together_SPAWN(depth-1);
-        test_together_SPAWN(depth-1);
+        test_together_SPAWN(worker, depth-1);
+        test_together_SPAWN(worker, depth-1);
+        test_together_SPAWN(worker, depth-1);
+        test_together_SPAWN(worker, depth-1);
         test_newframe_NEWFRAME(depth-1);
-        test_together_SYNC();
-        test_together_SYNC();
-        test_together_SYNC();
-        test_together_SYNC();
+        test_together_SYNC(worker);
+        test_together_SYNC(worker);
+        test_together_SYNC(worker);
+        test_together_SYNC(worker);
     }
 }
 
-void test_newframe(int depth)
+void test_newframe(LaceWorker* worker, int depth)
 {
     if (depth != 0) {
-        test_newframe_SPAWN(depth-1);
-        test_newframe_SPAWN(depth-1);
-        test_newframe_SPAWN(depth-1);
-        test_newframe_SPAWN(depth-1);
+        test_newframe_SPAWN(worker, depth-1);
+        test_newframe_SPAWN(worker, depth-1);
+        test_newframe_SPAWN(worker, depth-1);
+        test_newframe_SPAWN(worker, depth-1);
         test_together_TOGETHER(depth-1);
-        test_newframe_SYNC();
-        test_newframe_SYNC();
-        test_newframe_SYNC();
-        test_newframe_SYNC();
+        test_newframe_SYNC(worker);
+        test_newframe_SYNC(worker);
+        test_newframe_SYNC(worker);
+        test_newframe_SYNC(worker);
     }
 }
 
 VOID_TASK_0(test_something)
-void test_something()
+void test_something(LaceWorker* worker)
 {
     printf("running from worker %d\n", lace_worker_id());
 }
 
 VOID_TASK_1(_main, void*, arg)
-void _main(void* arg)
+void _main(LaceWorker* worker, void* arg)
 {
     fprintf(stdout, "Testing TOGETHER and NEWFRAME with %u workers...\n", lace_worker_count());
 

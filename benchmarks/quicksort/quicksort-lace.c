@@ -9,7 +9,7 @@ static int * a, * b;
 static size_t size;
 
 VOID_TASK_2(quicksort, int*, a, size_t, n)
-void quicksort(int* a, size_t n)
+void quicksort(LaceWorker* worker, int* a, size_t n)
 {
     if (n < 2) return;
 
@@ -32,9 +32,9 @@ void quicksort(int* a, size_t n)
         }
     }
 
-    quicksort_SPAWN(a, right - a + 1);
-    quicksort(left, a + n - left);
-    quicksort_SYNC();
+    quicksort_SPAWN(worker, a, right - a + 1);
+    quicksort(worker, left, a + n - left);
+    quicksort_SYNC(worker);
 }
 
 int verify()
