@@ -22,11 +22,13 @@ int __attribute__((noinline)) loop()
 }
 
 TASK_1(int, tree, int, d)
+
+int tree(int d)
 {
     if( d>0 ) {
         int i;
-        for (i=0;i<w;i++) SPAWN(tree, d-1);
-        for (i=0;i<w;i++) SYNC(tree);
+        for (i=0;i<w;i++) tree_SPAWN(d-1);
+        for (i=0;i<w;i++) tree_SYNC();
         return 0;
     } else {
         return loop();
@@ -82,11 +84,11 @@ int main(int argc, char **argv)
     m = atoi(argv[optind+3]);
 
     printf("Running depth first search on %d balanced trees with depth %d, width %d, grain %d.\n", m, d, w, n);
-    printf("Running with %u worker(s)...\n", lace_workers());
+    printf("Running with %u worker(s)...\n", lace_worker_count());
 
     double t1 = wctime();
     int i;
-    for(i=0; i<m; i++) RUN(tree, d);
+    for(i=0; i<m; i++) tree_RUN(d);
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);

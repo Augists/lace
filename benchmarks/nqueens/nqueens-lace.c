@@ -9,6 +9,8 @@
  * Given already placed queens in array a, and we want n queens, place a queen on row d at position i
  */
 TASK_4(long, nqueens, const int*, a, int, n, int, d, int, i)
+
+long nqueens(const int* a, int n, int d, int i)
 {
     // copy queens from a to new array aa and check if ok
     int aa[d + 1];
@@ -30,13 +32,13 @@ TASK_4(long, nqueens, const int*, a, int, n, int, d, int, i)
 
     // if not reached, place the next queen recursively
     for (int k = 0; k<n; k++) {
-        SPAWN(nqueens, aa, n, d, k);
+        nqueens_SPAWN(aa, n, d, k);
     }
 
     // and return the sum of the recursive counts
     long sum = 0;
     for (int k=0; k<n; k++) {
-        sum += SYNC(nqueens);
+        sum += nqueens_SYNC();
     }
     return sum;
 }
@@ -87,7 +89,7 @@ int main(int argc, char *argv[])
 
     lace_start(workers, dqsize);
 
-    printf("Running nqueens n=%d with %u workers...\n", n, lace_workers());
+    printf("Running nqueens n=%d with %u workers...\n", n, lace_worker_count());
 
     double t1 = wctime();
     long res = nqueens_RUN(NULL, n, -1, 0);

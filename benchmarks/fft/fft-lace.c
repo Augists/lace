@@ -38,6 +38,7 @@ static const REAL pi = 3.1415926535897932384626434;
  * and store them into an array.
  */
 VOID_TASK_4(compute_w_coefficients, int, n, int, a, int, b, COMPLEX*, W)
+void compute_w_coefficients(int n, int a, int b, COMPLEX* W)
 {
     register double twoPiOverN;
     register int k;
@@ -55,9 +56,9 @@ VOID_TASK_4(compute_w_coefficients, int, n, int, a, int, b, COMPLEX*, W)
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(compute_w_coefficients, n, a, ab, W);
-        CALL(compute_w_coefficients, n, ab + 1, b, W);
-        SYNC(compute_w_coefficients);
+        compute_w_coefficients_SPAWN(n, a, ab, W);
+        compute_w_coefficients(n, ab + 1, b, W);
+        compute_w_coefficients_SYNC();
     }
 }
 
@@ -101,6 +102,7 @@ static int factor(int n)
 }
 
 VOID_TASK_6(unshuffle, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, r, int, m)
+void unshuffle(int a, int b, COMPLEX* in, COMPLEX* out, int r, int m)
 {
     int i, j;
     int r4 = r & (~0x3);
@@ -128,9 +130,9 @@ VOID_TASK_6(unshuffle, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, r, int,
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(unshuffle, a, ab, in, out, r, m);
-        CALL(unshuffle, ab, b, in, out, r, m);
-        SYNC(unshuffle);
+        unshuffle_SPAWN(a, ab, in, out, r, m);
+        unshuffle(ab, b, in, out, r, m);
+        unshuffle_SYNC();
     }
 }
 
@@ -150,6 +152,7 @@ VOID_TASK_6(unshuffle, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, r, int,
  *
  */
 VOID_TASK_6(fft_aux, int, n, COMPLEX*, in, COMPLEX*, out, int*,factors, COMPLEX*, W, int, nW)
+void fft_aux(int n, COMPLEX* in, COMPLEX* out, int* factors, COMPLEX* W, int nW)
 {
     int r, m;
 
@@ -182,40 +185,40 @@ VOID_TASK_6(fft_aux, int, n, COMPLEX*, in, COMPLEX*, out, int*,factors, COMPLEX*
     if (r < n) {
         /* split the DFT of length n into r DFTs of length n/r,  and recurse */
         if (r == 32)
-            CALL(fft_unshuffle_32, 0, m, in, out, m);
+            fft_unshuffle_32(0, m, in, out, m);
         else if (r == 16)
-            CALL(fft_unshuffle_16, 0, m, in, out, m);
+            fft_unshuffle_16(0, m, in, out, m);
         else if (r == 8)
-            CALL(fft_unshuffle_8, 0, m, in, out, m);
+            fft_unshuffle_8(0, m, in, out, m);
         else if (r == 4)
-            CALL(fft_unshuffle_4, 0, m, in, out, m);
+            fft_unshuffle_4(0, m, in, out, m);
         else if (r == 2)
-            CALL(fft_unshuffle_2, 0, m, in, out, m);
+            fft_unshuffle_2(0, m, in, out, m);
         else
-            CALL(unshuffle, 0, m, in, out, r, m);
+            unshuffle(0, m, in, out, r, m);
 
         int k;
         for(k = 0; k < n; k += m) {
-            SPAWN(fft_aux, m, out + k, in + k, factors + 1, W, nW);
+            fft_aux_SPAWN(m, out + k, in + k, factors + 1, W, nW);
         }
         for(k = 0; k < n; k += m) {
-            SYNC(fft_aux);
+            fft_aux_SYNC();
         }
     }
 
     /* now multiply by the twiddle factors, and perform m FFTs of length r */
     if (r == 2)
-        CALL(fft_twiddle_2, 0, m, in, out, W, nW, nW / n, m);
+        fft_twiddle_2(0, m, in, out, W, nW, nW / n, m);
     else if (r == 4)
-        CALL(fft_twiddle_4, 0, m, in, out, W, nW, nW / n, m);
+        fft_twiddle_4(0, m, in, out, W, nW, nW / n, m);
     else if (r == 8)
-        CALL(fft_twiddle_8, 0, m, in, out, W, nW, nW / n, m);
+        fft_twiddle_8(0, m, in, out, W, nW, nW / n, m);
     else if (r == 16)
-        CALL(fft_twiddle_16, 0, m, in, out, W, nW, nW / n, m);
+        fft_twiddle_16(0, m, in, out, W, nW, nW / n, m);
     else if (r == 32)
-        CALL(fft_twiddle_32, 0, m, in, out, W, nW, nW / n, m);
+        fft_twiddle_32(0, m, in, out, W, nW, nW / n, m);
     else
-        CALL(fft_twiddle_gen, 0, m, in, out, W, nW, nW / n, r, m);
+        fft_twiddle_gen(0, m, in, out, W, nW, nW / n, r, m);
 
     return;
 }
@@ -224,13 +227,14 @@ VOID_TASK_6(fft_aux, int, n, COMPLEX*, in, COMPLEX*, out, int*,factors, COMPLEX*
  * user interface for fft_aux
  */
 VOID_TASK_3(fft, int, n, COMPLEX*, in, COMPLEX*, out)
+void fft(int n, COMPLEX* in, COMPLEX* out)
 {
     int factors[40];		/* allows FFTs up to at least 3^40 */
     int *p = factors;
     int l = n;
     int r;
 
-    CALL(compute_w_coefficients, n, 0, n / 2, W);
+    compute_w_coefficients(n, 0, n / 2, W);
 
     /**
      * find factors of n, first 8, then 4 and then primes in ascending
@@ -242,7 +246,7 @@ VOID_TASK_3(fft, int, n, COMPLEX*, in, COMPLEX*, out)
         l /= r;
     } while (l > 1);
 
-    CALL(fft_aux, n, in, out, factors, W, n);
+    fft_aux(n, in, out, factors, W, n);
     return;
 }
 
@@ -316,13 +320,13 @@ int main(int argc, char *argv[])
 
     lace_start(workers, dqsize);
 
-    printf("Running fft n=%d with %u worker(s)...\n", n, lace_workers());
+    printf("Running fft n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     init();
     prep();
 
     double t1 = wctime();
-    RUN(fft, size, cp, out);
+    fft_RUN(size, cp, out);
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);

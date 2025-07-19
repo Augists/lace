@@ -42,16 +42,17 @@ static void fft_twiddle_gen1(COMPLEX * in, COMPLEX * out,
 }
 
 VOID_TASK_9(fft_twiddle_gen, int, i, int, i1, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, r, int, m)
-{
+
+void fft_twiddle_gen(int i, int i1, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int r, int m){
     if (i == i1 - 1) {
         fft_twiddle_gen1(in + i, out + i, W,
                 r, m, nW, nWdn * i, nWdn * m);
     } else {
         int i2 = (i + i1) / 2;
 
-        SPAWN(fft_twiddle_gen, i, i2, in, out, W, nW, nWdn, r, m);
-        CALL(fft_twiddle_gen, i2, i1, in, out, W, nW, nWdn, r, m);
-        SYNC(fft_twiddle_gen);
+        fft_twiddle_gen_SPAWN(i, i2, in, out, W, nW, nWdn, r, m);
+        fft_twiddle_gen(i2, i1, in, out, W, nW, nWdn, r, m);
+        fft_twiddle_gen_SYNC();
     }
 }
 
@@ -71,6 +72,7 @@ static void fft_base_2(COMPLEX * in, COMPLEX * out)
 }
 
 VOID_TASK_8(fft_twiddle_2, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, m)
+void fft_twiddle_2(int a, int b, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int m)
 {
     int l1, i;
     COMPLEX *jp, *kp;
@@ -99,13 +101,14 @@ VOID_TASK_8(fft_twiddle_2, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_twiddle_2, a, ab, in, out, W, nW, nWdn, m);
-        CALL(fft_twiddle_2, ab, b, in, out, W, nW, nWdn, m);
-        SYNC(fft_twiddle_2);
+        fft_twiddle_2_SPAWN(a, ab, in, out, W, nW, nWdn, m);
+        fft_twiddle_2(ab, b, in, out, W, nW, nWdn, m);
+        fft_twiddle_2_SYNC();
     }
 }
 
 VOID_TASK_5(fft_unshuffle_2, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m)
+void fft_unshuffle_2(int a, int b, COMPLEX* in, COMPLEX* out, int m)
 {
     int i;
     const COMPLEX *ip;
@@ -121,9 +124,9 @@ VOID_TASK_5(fft_unshuffle_2, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_unshuffle_2, a, ab, in, out, m);
-        CALL(fft_unshuffle_2, ab, b, in, out, m);
-        SYNC(fft_unshuffle_2);
+        fft_unshuffle_2_SPAWN(a, ab, in, out, m);
+        fft_unshuffle_2(ab, b, in, out, m);
+        fft_unshuffle_2_SYNC();
     }
 }
 
@@ -168,6 +171,7 @@ static void fft_base_4(COMPLEX * in, COMPLEX * out)
 }
 
 VOID_TASK_8(fft_twiddle_4, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, m)
+void fft_twiddle_4(int a, int b, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int m)
 {
     int l1, i;
     COMPLEX *jp, *kp;
@@ -230,13 +234,14 @@ VOID_TASK_8(fft_twiddle_4, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_twiddle_4, a, ab, in, out, W, nW, nWdn, m);
-        CALL(fft_twiddle_4, ab, b, in, out, W, nW, nWdn, m);
-        SYNC(fft_twiddle_4);
+        fft_twiddle_4_SPAWN(a, ab, in, out, W, nW, nWdn, m);
+        fft_twiddle_4(ab, b, in, out, W, nW, nWdn, m);
+        fft_twiddle_4_SYNC();
     }
 }
 
 VOID_TASK_5(fft_unshuffle_4, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m)
+void fft_unshuffle_4(int a, int b, COMPLEX* in, COMPLEX* out, int m)
 {
     int i;
     const COMPLEX *ip;
@@ -256,9 +261,9 @@ VOID_TASK_5(fft_unshuffle_4, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_unshuffle_4, a, ab, in, out, m);
-        CALL(fft_unshuffle_4, ab, b, in, out, m);
-        SYNC(fft_unshuffle_4);
+        fft_unshuffle_4_SPAWN(a, ab, in, out, m);
+        fft_unshuffle_4(ab, b, in, out, m);
+        fft_unshuffle_4_SYNC();
     }
 }
 
@@ -374,6 +379,7 @@ static void fft_base_8(COMPLEX * in, COMPLEX * out)
 }
 
 VOID_TASK_8(fft_twiddle_8, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, m)
+void fft_twiddle_8(int a, int b, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int m)
 {
     int l1, i;
     COMPLEX *jp, *kp;
@@ -520,13 +526,14 @@ VOID_TASK_8(fft_twiddle_8, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_twiddle_8, a, ab, in, out, W, nW, nWdn, m);
-        CALL(fft_twiddle_8, ab, b, in, out, W, nW, nWdn, m);
-        SYNC(fft_twiddle_8);
+        fft_twiddle_8_SPAWN(a, ab, in, out, W, nW, nWdn, m);
+        fft_twiddle_8(ab, b, in, out, W, nW, nWdn, m);
+        fft_twiddle_8_SYNC();
     }
 }
 
 VOID_TASK_5(fft_unshuffle_8, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m)
+void fft_unshuffle_8(int a, int b, COMPLEX* in, COMPLEX* out, int m)
 {
     int i;
     const COMPLEX *ip;
@@ -554,9 +561,9 @@ VOID_TASK_5(fft_unshuffle_8, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_unshuffle_8, a, ab, in, out, m);
-        CALL(fft_unshuffle_8, ab, b, in, out, m);
-        SYNC(fft_unshuffle_8);
+        fft_unshuffle_8_SPAWN(a, ab, in, out, m);
+        fft_unshuffle_8(ab, b, in, out, m);
+        fft_unshuffle_8_SYNC();
     }
 }
 
@@ -840,6 +847,7 @@ static void fft_base_16(COMPLEX * in, COMPLEX * out)
 }
 
 VOID_TASK_8(fft_twiddle_16, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, m)
+void fft_twiddle_16(int a, int b, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int m)
 {
     int l1, i;
     COMPLEX *jp, *kp;
@@ -1186,13 +1194,14 @@ VOID_TASK_8(fft_twiddle_16, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_twiddle_16, a, ab, in, out, W, nW, nWdn, m);
-        CALL(fft_twiddle_16, ab, b, in, out, W, nW, nWdn, m);
-        SYNC(fft_twiddle_16);
+        fft_twiddle_16_SPAWN(a, ab, in, out, W, nW, nWdn, m);
+        fft_twiddle_16(ab, b, in, out, W, nW, nWdn, m);
+        fft_twiddle_16_SYNC();
     }
 }
 
 VOID_TASK_5(fft_unshuffle_16, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m)
+void fft_unshuffle_16(int a, int b, COMPLEX* in, COMPLEX* out, int m)
 {
     int i;
     const COMPLEX *ip;
@@ -1236,9 +1245,9 @@ VOID_TASK_5(fft_unshuffle_16, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, 
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_unshuffle_16, a, ab, in, out, m);
-        CALL(fft_unshuffle_16, ab, b, in, out, m);
-        SYNC(fft_unshuffle_16);
+        fft_unshuffle_16_SPAWN(a, ab, in, out, m);
+        fft_unshuffle_16(ab, b, in, out, m);
+        fft_unshuffle_16_SYNC();
     }
 }
 
@@ -1922,6 +1931,7 @@ static void fft_base_32(COMPLEX * in, COMPLEX * out)
 }
 
 VOID_TASK_8(fft_twiddle_32, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX*, W, int, nW, int, nWdn, int, m)
+void fft_twiddle_32(int a, int b, COMPLEX* in, COMPLEX* out, COMPLEX* W, int nW, int nWdn, int m)
 {
     int l1, i;
     COMPLEX *jp, *kp;
@@ -2732,13 +2742,14 @@ VOID_TASK_8(fft_twiddle_32, int, a, int, b, COMPLEX*, in, COMPLEX*, out, COMPLEX
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_twiddle_32, a, ab, in, out, W, nW, nWdn, m);
-        CALL(fft_twiddle_32, ab, b, in, out, W, nW, nWdn, m);
-        SYNC(fft_twiddle_32);
+        fft_twiddle_32_SPAWN(a, ab, in, out, W, nW, nWdn, m);
+        fft_twiddle_32(ab, b, in, out, W, nW, nWdn, m);
+        fft_twiddle_32_SYNC();
     }
 }
 
 VOID_TASK_5(fft_unshuffle_32, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, m)
+void fft_unshuffle_32(int a, int b, COMPLEX* in, COMPLEX* out, int m)
 {
     int i;
     const COMPLEX *ip;
@@ -2814,9 +2825,9 @@ VOID_TASK_5(fft_unshuffle_32, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, 
     } else {
         int ab = (a + b) / 2;
 
-        SPAWN(fft_unshuffle_32, a, ab, in, out, m);
-        CALL(fft_unshuffle_32, ab, b, in, out, m);
-        SYNC(fft_unshuffle_32);
+        fft_unshuffle_32_SPAWN(a, ab, in, out, m);
+        fft_unshuffle_32(ab, b, in, out, m);
+        fft_unshuffle_32_SYNC();
     }
 }
 

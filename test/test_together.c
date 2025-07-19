@@ -3,54 +3,56 @@
 
 #include <lace.h>
 
-VOID_TASK_DECL_1(test_together, int);
-VOID_TASK_DECL_1(test_newframe, int);
+VOID_TASK_1(test_together, int, depth);
+VOID_TASK_1(test_newframe, int, depth);
 
-VOID_TASK_IMPL_1(test_together, int, depth)
+void test_together(int depth)
 {
     if (depth != 0) {
-        SPAWN(test_together, depth-1);
-        SPAWN(test_together, depth-1);
-        SPAWN(test_together, depth-1);
-        SPAWN(test_together, depth-1);
-        NEWFRAME(test_newframe, depth-1);
-        SYNC(test_together);
-        SYNC(test_together);
-        SYNC(test_together);
-        SYNC(test_together);
+        test_together_SPAWN(depth-1);
+        test_together_SPAWN(depth-1);
+        test_together_SPAWN(depth-1);
+        test_together_SPAWN(depth-1);
+        test_newframe_NEWFRAME(depth-1);
+        test_together_SYNC();
+        test_together_SYNC();
+        test_together_SYNC();
+        test_together_SYNC();
     }
 }
 
-VOID_TASK_IMPL_1(test_newframe, int, depth)
+void test_newframe(int depth)
 {
     if (depth != 0) {
-        SPAWN(test_newframe, depth-1);
-        SPAWN(test_newframe, depth-1);
-        SPAWN(test_newframe, depth-1);
-        SPAWN(test_newframe, depth-1);
-        TOGETHER(test_together, depth-1);
-        SYNC(test_newframe);
-        SYNC(test_newframe);
-        SYNC(test_newframe);
-        SYNC(test_newframe);
+        test_newframe_SPAWN(depth-1);
+        test_newframe_SPAWN(depth-1);
+        test_newframe_SPAWN(depth-1);
+        test_newframe_SPAWN(depth-1);
+        test_together_TOGETHER(depth-1);
+        test_newframe_SYNC();
+        test_newframe_SYNC();
+        test_newframe_SYNC();
+        test_newframe_SYNC();
     }
 }
 
 VOID_TASK_0(test_something)
+void test_something()
 {
-    printf("running from worker %d\n", LACE_WORKER_ID);
+    printf("running from worker %d\n", lace_worker_id());
 }
 
 VOID_TASK_1(_main, void*, arg)
+void _main(void* arg)
 {
-    fprintf(stdout, "Testing TOGETHER and NEWFRAME with %u workers...\n", lace_workers());
+    fprintf(stdout, "Testing TOGETHER and NEWFRAME with %u workers...\n", lace_worker_count());
 
     for (int i=0; i<5; i++) {
-        NEWFRAME(test_newframe, 5);
-        TOGETHER(test_together, 5);
+        test_newframe_NEWFRAME(5);
+        test_together_TOGETHER(5);
     }
 
-    RUN(test_something);
+    test_something_RUN();
 
     // We didn't use arg
     (void)arg;
@@ -63,10 +65,10 @@ runtests(int n_workers)
     lace_start(n_workers, 0);
 
     printf("Newframe:\n");
-    NEWFRAME(test_something);
+    test_something_NEWFRAME();
 
     printf("Together:\n");
-    TOGETHER(test_something);
+    test_something_TOGETHER();
 
     lace_suspend();
     lace_resume();
@@ -75,12 +77,12 @@ runtests(int n_workers)
     printf("Running (10x):\n");
     for (int i=0; i<5; i++) {
         printf("%d: ", i);
-        RUN(test_something);
+        test_something_RUN();
     }
 
     // Spawn and start all worker pthreads; suspends current thread until done.
     printf("Recursive test\n");
-    RUN(_main, NULL);
+    _main_RUN(NULL);
 
     // The lace_startup command also exits Lace after _main is completed.
     lace_stop();

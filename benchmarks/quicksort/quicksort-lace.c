@@ -9,6 +9,7 @@ static int * a, * b;
 static size_t size;
 
 VOID_TASK_2(quicksort, int*, a, size_t, n)
+void quicksort(int* a, size_t n)
 {
     if (n < 2) return;
 
@@ -31,9 +32,9 @@ VOID_TASK_2(quicksort, int*, a, size_t, n)
         }
     }
 
-    SPAWN(quicksort, a, right - a + 1);
-    CALL(quicksort, left, a + n - left);
-    SYNC(quicksort);
+    quicksort_SPAWN(a, right - a + 1);
+    quicksort(left, a + n - left);
+    quicksort_SYNC();
 }
 
 int verify()
@@ -117,13 +118,13 @@ int main(int argc, char **argv)
 
     lace_start(workers, dqsize);
 
-    printf("Running quicksort n=10^%d with %u worker(s)...\n", n, lace_workers());
+    printf("Running quicksort n=10^%d with %u worker(s)...\n", n, lace_worker_count());
 
     init();
     prep();
 
     double t1 = wctime();
-    RUN(quicksort, a, size);
+    quicksort_RUN(a, size);
     double t2 = wctime();
     printf("Time: %f\n", t2-t1);
 

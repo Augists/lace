@@ -96,7 +96,9 @@ static int compare(struct item *a, struct item *b)
  * return the optimal solution for n items (first is e) and
  * capacity c. Value so far is v.
  */
-TASK_4(int, knapsack, struct item *,e, int, c, int, n, int, v)
+TASK_4(int, knapsack, struct item *, e, int, c, int, n, int, v)
+
+int knapsack(struct item *e, int c, int n, int v)
 {
     int with, without, best;
 
@@ -124,16 +126,16 @@ TASK_4(int, knapsack, struct item *,e, int, c, int, n, int, v)
 
 #ifdef __REVERSE_EXEC_ORDER
     /* compute the best solution with the current item in the knapsack */
-    SPAWN(knapsack, e + 1, c - e->weight, n - 1, v + e->value);
+    knapsack_SPAWN(e + 1, c - e->weight, n - 1, v + e->value);
     /* compute the best solution without the current item in the knapsack */
-    without = CALL(knapsack, e + 1, c, n - 1, v);
-    with = SYNC(knapsack);
+    without = knapsack(e + 1, c, n - 1, v);
+    with = knapsack_SYNC();
 #else
     /* compute the best solution without the current item in the knapsack */
-    SPAWN(knapsack, e + 1, c, n - 1, v);
+    knapsack_SPAWN(e + 1, c, n - 1, v);
     /* compute the best solution with the current item in the knapsack */
-    with = CALL(knapsack, e + 1, c - e->weight, n - 1, v + e->value);
-    without = SYNC(knapsack);
+    with = knapsack(e + 1, c - e->weight, n - 1, v + e->value);
+    without = knapsack_SYNC();
 #endif
 
     best = with > without ? with : without;
@@ -215,7 +217,7 @@ int main(int argc, char *argv[])
     prep();
 
     double t1 = wctime();
-    sol = RUN(knapsack, items, capacity, n, 0);
+    sol = knapsack_RUN(items, capacity, n, 0);
     double t2 = wctime();
 
     printf("Best value is %d\n", sol);

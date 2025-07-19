@@ -168,6 +168,7 @@ static void block_schur(Block B, Block A, Block C)
  * schur - Compute M' = M - VW.
  */
 VOID_TASK_4(schur, Matrix, M, Matrix, V, Matrix, W, int, nb)
+void schur(Matrix M, Matrix V, Matrix W, int nb)
 {
     Matrix M00, M01, M10, M11;
     Matrix V00, V01, V10, V11;
@@ -196,21 +197,21 @@ VOID_TASK_4(schur, Matrix, M, Matrix, V, Matrix, W, int, nb)
     W11 = &MATRIX(W, hnb, hnb);
 
     /* Form Schur complement with recursive calls. */
-    SPAWN(schur, M00, V00, W00, hnb);
-    SPAWN(schur, M01, V00, W01, hnb);
-    SPAWN(schur, M10, V10, W00, hnb);
-    CALL(schur, M11, V10, W01, hnb);
-    SYNC(schur);
-    SYNC(schur);
-    SYNC(schur);
+    schur_SPAWN(M00, V00, W00, hnb);
+    schur_SPAWN(M01, V00, W01, hnb);
+    schur_SPAWN(M10, V10, W00, hnb);
+    schur(M11, V10, W01, hnb);
+    schur_SYNC();
+    schur_SYNC();
+    schur_SYNC();
 
-    SPAWN(schur, M00, V01, W10, hnb);
-    SPAWN(schur, M01, V01, W11, hnb);
-    SPAWN(schur, M10, V11, W10, hnb);
-    CALL(schur, M11, V11, W11, hnb);
-    SYNC(schur);
-    SYNC(schur);
-    SYNC(schur);
+    schur_SPAWN(M00, V01, W10, hnb);
+    schur_SPAWN(M01, V01, W11, hnb);
+    schur_SPAWN(M10, V11, W10, hnb);
+    schur(M11, V11, W11, hnb);
+    schur_SYNC();
+    schur_SYNC();
+    schur_SYNC();
 
     return;
 }
@@ -218,9 +219,10 @@ VOID_TASK_4(schur, Matrix, M, Matrix, V, Matrix, W, int, nb)
 /*
  * lower_solve - Compute M' where LM' = M.
  */
-VOID_TASK_DECL_3(lower_solve, Matrix, Matrix, int)
+VOID_TASK_3(lower_solve, Matrix, M, Matrix, L, int, nb)
 
 VOID_TASK_4(aux_lower_solve, Matrix, Ma, Matrix, Mb, Matrix, L, int, nb)
+void aux_lower_solve(Matrix Ma, Matrix Mb, Matrix L, int nb)
 {
     Matrix L00, L10, L11;
 
@@ -230,12 +232,12 @@ VOID_TASK_4(aux_lower_solve, Matrix, Ma, Matrix, Mb, Matrix, L, int, nb)
     L11 = &MATRIX(L, nb, nb);
 
     /* Solve with recursive calls. */
-    CALL(lower_solve, Ma, L00, nb);
-    CALL(schur, Mb, L10, Ma, nb);
-    CALL(lower_solve, Mb, L11, nb);
+    lower_solve(Ma, L00, nb);
+    schur(Mb, L10, Ma, nb);
+    lower_solve(Mb, L11, nb);
 }
 
-VOID_TASK_IMPL_3(lower_solve, Matrix, M, Matrix, L, int, nb)
+void lower_solve(Matrix M, Matrix L, int nb)
 {
     Matrix M00, M01, M10, M11;
     int hnb;
@@ -254,9 +256,9 @@ VOID_TASK_IMPL_3(lower_solve, Matrix, M, Matrix, L, int, nb)
     M11 = &MATRIX(M, hnb, hnb);
 
     /* Solve with recursive calls. */
-    SPAWN(aux_lower_solve, M00, M10, L, hnb);
-    CALL(aux_lower_solve, M01, M11, L, hnb);
-    SYNC(aux_lower_solve);
+    aux_lower_solve_SPAWN(M00, M10, L, hnb);
+    aux_lower_solve(M01, M11, L, hnb);
+    aux_lower_solve_SYNC();
 
     return;
 }
@@ -264,9 +266,10 @@ VOID_TASK_IMPL_3(lower_solve, Matrix, M, Matrix, L, int, nb)
 /*
  * upper_solve - Compute M' where M'U = M.
  */
-VOID_TASK_DECL_3(upper_solve, Matrix, Matrix, int)
+VOID_TASK_3(upper_solve, Matrix, M, Matrix, U, int, nb)
 
 VOID_TASK_4(aux_upper_solve, Matrix, Ma, Matrix, Mb, Matrix, U, int, nb)
+void aux_upper_solve(Matrix Ma, Matrix Mb, Matrix U, int nb)
 {
     Matrix U00, U01, U11;
 
@@ -276,14 +279,14 @@ VOID_TASK_4(aux_upper_solve, Matrix, Ma, Matrix, Mb, Matrix, U, int, nb)
     U11 = &MATRIX(U, nb, nb);
 
     /* Solve with recursive calls. */
-    CALL(upper_solve, Ma, U00, nb);
-    CALL(schur, Mb, Ma, U01, nb);
-    CALL(upper_solve, Mb, U11, nb);
+    upper_solve(Ma, U00, nb);
+    schur(Mb, Ma, U01, nb);
+    upper_solve(Mb, U11, nb);
 
     return;
 }
 
-VOID_TASK_IMPL_3(upper_solve, Matrix, M, Matrix, U, int, nb)
+void upper_solve(Matrix M, Matrix U, int nb)
 {
     Matrix M00, M01, M10, M11;
     int hnb;
@@ -302,9 +305,9 @@ VOID_TASK_IMPL_3(upper_solve, Matrix, M, Matrix, U, int, nb)
     M11 = &MATRIX(M, hnb, hnb);
 
     /* Solve with recursive calls. */
-    SPAWN(aux_upper_solve, M00, M01, U, hnb);
-    CALL(aux_upper_solve, M10, M11, U, hnb);
-    SYNC(aux_upper_solve);
+    aux_upper_solve_SPAWN(M00, M01, U, hnb);
+    aux_upper_solve(M10, M11, U, hnb);
+    aux_upper_solve_SYNC();
 
     return;
 }
@@ -313,6 +316,7 @@ VOID_TASK_IMPL_3(upper_solve, Matrix, M, Matrix, U, int, nb)
  * lu - Perform LU decomposition of matrix M.
  */
 VOID_TASK_2(lu, Matrix, M, int, nb)
+void lu(Matrix M, int nb)
 {
     Matrix M00, M01, M10, M11;
     int hnb;
@@ -331,18 +335,18 @@ VOID_TASK_2(lu, Matrix, M, int, nb)
     M11 = &MATRIX(M, hnb, hnb);
 
     /* Decompose upper left. */
-    CALL(lu, M00, hnb);
+    lu(M00, hnb);
 
     /* Solve for upper right and lower left. */
-    SPAWN(lower_solve, M01, M00, hnb);
-    CALL(upper_solve, M10, M00, hnb);
-    SYNC(lower_solve);
+    lower_solve_SPAWN(M01, M00, hnb);
+    upper_solve(M10, M00, hnb);
+    lower_solve_SYNC();
 
     /* Compute Schur complement of lower right. */
-    CALL(schur, M11, M10, M01, hnb);
+    schur(M11, M10, M01, hnb);
 
     /* Decompose lower right. */
-    CALL(lu, M11, hnb);
+    lu(M11, hnb);
 
     return;
 }
@@ -399,11 +403,11 @@ int main(int argc, char **argv)
         
     lace_start(workers, dqsize);
 
-    printf("Running lu n=%d with %u worker(s)...\n", n, lace_workers());
+    printf("Running lu n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     init();
     double t1 = wctime();
-    RUN(lu, M, nBlocks);
+    lu_RUN(M, nBlocks);
     double t2 = wctime();
     printf("Time: %f\n", t2-t1);
             

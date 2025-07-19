@@ -247,6 +247,7 @@ int check_matrix(block * R, long x, long y, long o, double v)
  *
  */
 VOID_TASK_6(add_matrix, block*, T, long, ot, block*, R, long, oR, long, x, long, y)
+void add_matrix(block* T, long ot, block* R, long oR, long x, long y)
 {
     if (x + y == 2) {
         long i;
@@ -260,13 +261,13 @@ VOID_TASK_6(add_matrix, block*, T, long, ot, block*, R, long, oR, long, x, long,
     }
 
     if (x > y) {
-        SPAWN(add_matrix, T, ot, R, oR, x/2, y);
-        CALL(add_matrix, T+(x/2)*ot, ot, R+(x/2)*oR, oR, (x+1)/2, y);
-        SYNC(add_matrix);
+        add_matrix_SPAWN(T, ot, R, oR, x/2, y);
+        add_matrix(T+(x/2)*ot, ot, R+(x/2)*oR, oR, (x+1)/2, y);
+        add_matrix_SYNC();
     } else {
-        SPAWN(add_matrix, T, ot, R, oR, x, y/2);
-        CALL(add_matrix, T+(y/2), ot, R+(y/2), oR, x, (y+1)/2);
-        SYNC(add_matrix);
+        add_matrix_SPAWN(T, ot, R, oR, x, y/2);
+        add_matrix(T+(y/2), ot, R+(y/2), oR, x, (y+1)/2);
+        add_matrix_SYNC();
     }
 }
 
@@ -289,6 +290,7 @@ void init_matrix(block * R, long x, long y, long o, double v)
 }
 
 VOID_TASK_10(multiply_matrix, block*, A, long, oa, block*, B, long, ob, long, x, long, y, long, z, block*, R, long, oR, int, add)
+void multiply_matrix(block* A, long oa, block* B, long ob, long x, long y, long z, block* R, long oR, int add)
 {
     if (x + y + z == 3) {
         if (add) {
@@ -300,22 +302,22 @@ VOID_TASK_10(multiply_matrix, block*, A, long, oa, block*, B, long, ob, long, x,
     }
 
     if (x >= y && x >= z) {
-        SPAWN(multiply_matrix, A, oa, B, ob, x/2, y, z, R, oR, add);
-        CALL(multiply_matrix, A+(x/2)*oa, oa, B, ob, (x+1)/2, y, z, R+(x/2)*oR, oR, add);
-        SYNC(multiply_matrix);
+        multiply_matrix_SPAWN(A, oa, B, ob, x/2, y, z, R, oR, add);
+        multiply_matrix(A+(x/2)*oa, oa, B, ob, (x+1)/2, y, z, R+(x/2)*oR, oR, add);
+        multiply_matrix_SYNC();
     } else if (y > x && y > z) {
-        SPAWN(multiply_matrix, A+(y/2), oa, B+(y/2)*ob, ob, x, (y+1)/2, z, R, oR, add);
+        multiply_matrix_SPAWN(A+(y/2), oa, B+(y/2)*ob, ob, x, (y+1)/2, z, R, oR, add);
 
         block * tmp = malloc(x * z * sizeof(block));
-        CALL(multiply_matrix, A, oa, B, ob, x, y/2, z, tmp, z, 0);
-        SYNC(multiply_matrix);
+        multiply_matrix(A, oa, B, ob, x, y/2, z, tmp, z, 0);
+        multiply_matrix_SYNC();
 
-        CALL(add_matrix, tmp, z, R, oR, x, z);
+        add_matrix(tmp, z, R, oR, x, z);
         free(tmp);
     } else {
-        SPAWN(multiply_matrix, A, oa, B, ob, x, y, z/2, R, oR, add);
-        CALL(multiply_matrix, A, oa, B+(z/2), ob, x, y, (z+1)/2, R+(z/2), oR, add);
-        SYNC(multiply_matrix);
+        multiply_matrix_SPAWN(A, oa, B, ob, x, y, z/2, R, oR, add);
+        multiply_matrix(A, oa, B+(z/2), ob, x, y, (z+1)/2, R+(z/2), oR, add);
+        multiply_matrix_SYNC();
     }
 }
 
@@ -377,12 +379,12 @@ int main(int argc, char **argv)
 
     lace_start(workers, dqsize);
 
-    printf("Running rectmul n=%d with %u worker(s)...\n", n, lace_workers());
+    printf("Running rectmul n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     init();
     init_matrix(R, x, z, z, 0.0);
     double t1 = wctime();
-    RUN(multiply_matrix, A, y, B, z, x, y, z, R, z, 0);
+    multiply_matrix_RUN(A, y, B, z, x, y, z, R, z, 0);
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);
