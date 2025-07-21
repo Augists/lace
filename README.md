@@ -1,6 +1,11 @@
-Lace [![CI](https://github.com/trolando/lace/actions/workflows/ci.yml/badge.svg)](https://github.com/trolando/lace/actions/workflows/ci.yml)
-======
-Lace is a C framework for fine-grained fork-join parallelism intended for scientific computations on multi-core computers.
+# Lace
+
+[![Linux](https://github.com/trolando/lace/actions/workflows/linux.yml/badge.svg)](https://github.com/trolando/lace/actions/workflows/linux.yml)
+[![macOS](https://github.com/trolando/lace/actions/workflows/macos.yml/badge.svg)](https://github.com/trolando/lace/actions/workflows/macos.yml)
+[![Windows](https://github.com/trolando/lace/actions/workflows/windows.yml/badge.svg)](https://github.com/trolando/lace/actions/workflows/windows.yml)
+[![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+Lace is a C framework for fine-grained fork-join parallelism on multi-core computers.
 
 ```c
 TASK_1(int, fibonacci, int, n) {
@@ -21,8 +26,7 @@ int main(int argc, char **argv)
 }
 ```
 
-## Description
-
+## Features
 
 Feature | Description
 ---------|------------
@@ -30,29 +34,48 @@ Low overhead | Lace uses a **scalable** double-ended queue for its implementatio
 Suspending | Lace threads can be manually suspended when the framework is not used to reduce CPU usage. This is used when part of a computation is not parallelized, since Lace workers busy-wait for work.
 Interrupting | Lace threads can be (cooperatively) interrupted to execute another task first. This is for example used by [Sylvan](https://github.com/trolando/sylvan) to perform garbage collection.
 
-Lace is licensed with the Apache 2.0 license.
+Please [let us know](https://github.com/trolando/lace/issues) if you need features that are currently not implemented in Lace.
 
-The main repository of Lace is https://github.com/trolando/lace.
-The main author of Lace is Tom van Dijk who can be reached via <tom@tvandijk.nl>.
-Please let us know if you use Lace in your projects and if you need
-features that are currently not implemented in Lace.
+## Installation
 
-## Dependencies
+Lace requires a modern compiler supporting C11. It is tested with the GNU and Clang compilers.
+Lace can use hwloc (`libhwloc-dev`) to pin workers and allocate memory on the correct CPUs/memory domains on NUMA systems.
+Lace works on Linux, Windows, and Mac OS X.
 
-Lace requires a modern compiler supporting C11.
-Optionally, Lace can use hwloc (`libhwloc-dev`) to pin workers and allocate memory on the correct CPUs/memory domains on NUMA systems.
+It is possible to install Lace with `make install` if that is desired.
+We recommend using Lace as a submodule in your repository or as a dependency in your CMake script,
+for example using the `FetchContent` or `ExternalProject` features of CMake.
+
+<details>
+  <summary>Example for FetchContent</summary>
+
+```cmake
+if(NOT TARGET lace)
+  find_package(lace QUIET)
+  if(NOT lace_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        lace
+        GIT_REPOSITORY https://github.com/trolando/lace.git
+        GIT_TAG        v1.4.2
+    )
+    FetchContent_MakeAvailable(lace)
+  endif()
+endif()
+```
+
+This example first tests if Lace is already a target in the project, for example when included as a submodule.
+If this is not the case, it will try to find a locally installed version of Lace and use that.
+Otherwise, it will use `FetchContent` to download Lace from GitHub.
+</details>
 
 ## Building Lace
 
 It is recommended to build Lace in a separate build directory:
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+cmake -B build
+cmake --build build
 ```
-
-Lace is typically used as a subproject, for example using the FetchContent or ExternalProject feature of CMake.
 
 Lace can be configured with the following CMake settings:
 Setting | Description
@@ -66,13 +89,15 @@ Setting | Description
 `LACE_COUNT_SPLITS` | Let Lace count how often the queue split point was moved
 `LACE_PIE_TIMES` | Let Lace record precise overhead times
 
-Ideally, `LACE_USE_MMAP` is set to let Lace allocate a large amount of virtual memory for the task queues instead of real memory. Real memory is only allocated by the OS when required, thus in most use cases this minimizes the memory overhead of Lace. If `LACE_USE_MMAP` is not set, then real memory is allocated using `posix_memalign`, and a more conservative queue size should be chosen when invoking `lace_start`.
+Ideally, `LACE_USE_MMAP` is set to let Lace allocate a large amount of virtual memory for the task queues instead of real memory.
+Real memory is only allocated and cleared by the OS when required, thus in most use cases this should minimize the memory overhead of Lace.
+If `LACE_USE_MMAP` is not set, then real memory is allocated using `posix_memalign`, and a more conservative queue size should be chosen when invoking `lace_start`.
+
+## Using Lace
 
 There are two versions of Lace:
 - The standard version `lace` consisting of `lace.h` and `lace.c` uses 64 bytes per task and supports at most 6 parameters per task.
 - The extended version `lace14` consisting of `lace14.h` and `lace14.c` uses 128 bytes per task and supports at most 14 parameters per task.
-
-## Using Lace
 
 ### Starting and stopping Lace
 Start the Lace framework using the `lace_start(unsigned int n_workers, size_t dqsize)` method.
@@ -83,10 +108,8 @@ This creates `n_workers` new threads that will immediately start busy-waiting fo
 Use `lace_stop()` to stop the framework, terminating all workers.
 
 Lace workers busy-wait for tasks to steal, increasing the CPU load to 100%.
-Use `lace_suspend` and `lace_resume` from non-Lace threads to temporarily stop the work-stealing framework.
-
-Calls to `lace_start`, `lace_suspend`, and `lace_resume` do not incur much overhead.
-Suspending and resuming typically requires at most 1-2 ms.
+Use `lace_suspend` and `lace_resume` (in a non-Lace thread) to temporarily stop the work-stealing framework.
+Suspending and resuming typically requires less than 1-2 ms.
 
 ### Defining tasks
 
@@ -119,10 +142,6 @@ Large tasks can use the `YIELD_NEWFRAME()` macro to manually check for interrupt
 Lace offers the `lace_barrier` method to let all Lace workers synchronize.
 Typically used in Lace tasks created using the `TOGETHER` macro.
 
-### Support for C++
-
-There is currently no direct support for C++ classes, but class methods can be parallelized via C helper functions.
-
 ## Benchmarking Lace
 
 Lace comes with a number of example programs, which can be used to test the performance of Lace.
@@ -141,3 +160,8 @@ The following two academic publications are directly related to Lace.
 T. van Dijk (2016) [Sylvan: Multi-core Decision Diagrams](http://dx.doi.org/10.3990/1.9789036541602). PhD Thesis.
 
 T. van Dijk and J.C. van de Pol (2014) [Lace: Non-blocking Split Deque for Work-Stealing](http://dx.doi.org/10.1007/978-3-319-14313-2_18). In: Euro-Par 2014: Parallel Processing Workshops. LNCS 8806, Springer.
+
+## License
+
+Lace is licensed with the [Apache 2.0 license](https://opensource.org/licenses/Apache-2.0). 
+

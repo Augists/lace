@@ -1,0 +1,57 @@
+name: Linux
+
+on: [push, pull_request]
+
+jobs:
+  gcc-build:
+    name: 'Linux GCC-${{matrix.version}} ${{matrix.build_type}}'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+        version: [9, 12]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install -y cmake cmake-data build-essential gcc-${{matrix.version}} g++-${{matrix.version}}
+    - name: Build
+      shell: bash
+      run: |
+        export CC=gcc-${{matrix.version}} CXX=g++-${{matrix.version}}
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DLACE_BUILD_BENCHMARKS=ON
+        cmake --build build --config ${{matrix.build_type}}
+    - name: Test
+      shell: bash
+      working-directory: build
+      run: ctest --output-on-failure -C ${{ matrix.build_type }} -VV --timeout 30
+
+  clang-build:
+    name: 'Linux CLang-${{matrix.version}} ${{matrix.build_type}}'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+        version: [15, 19]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install -y cmake cmake-data build-essential clang-${{matrix.version}}
+    - name: Build
+      shell: bash
+      run: |
+        export CC=clang-${{matrix.version}} CXX=clang++-${{matrix.version}}
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DLACE_BUILD_BENCHMARKS=ON
+        cmake --build build --config ${{matrix.build_type}}
+    - name: Test
+      shell: bash
+      working-directory: build
+      run: ctest --output-on-failure -C ${{ matrix.build_type }} -VV --timeout 30
+

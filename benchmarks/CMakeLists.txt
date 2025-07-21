@@ -2,7 +2,11 @@ macro(set_compilation_settings NAME)
     target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     set_property(TARGET ${NAME} PROPERTY C_STANDARD 11 CXX_STANDARD 11)
     target_compile_features(${NAME} PRIVATE c_std_11 cxx_std_11)
-    target_compile_options(${NAME} PRIVATE -Wall -Wextra -Werror -Wno-deprecated)
+    target_compile_options(${NAME} PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
+            -pipe -march=native -Wall -Wextra -Wpedantic -Wno-deprecated>
+        $<$<CXX_COMPILER_ID:MSVC>: /W4>
+    )
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
         # set_property(TARGET ${NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
         target_compile_options(${NAME} PRIVATE -flto)

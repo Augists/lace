@@ -1,0 +1,69 @@
+name: Windows
+
+on: [push, pull_request]
+
+jobs:
+  windows-build:
+    name: '🚧${{ matrix.icon }} ${{ matrix.sys }} ${{ matrix.build_type }}'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { icon: '🟦', sys: mingw64, build_type: Release }
+          - { icon: '🟦', sys: mingw64, build_type: Debug }
+          - { icon: '🟨', sys: ucrt64,  build_type: Release }
+          - { icon: '🟨', sys: ucrt64,  build_type: Debug }
+          - { icon: '🟧', sys: clang64, build_type: Release }
+          - { icon: '🟧', sys: clang64, build_type: Debug }
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: '🧰 Checkout'
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: '${{ matrix.icon }} Setup MSYS2'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{matrix.sys}}
+        update: true
+        install: >-
+          git
+          make
+        pacboy: >-
+          toolchain:p
+          cmake:p
+          ninja:p
+    - name: '🚧 Build TOOL'
+      run: |
+        cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        cmake --build build
+    - name: 'Test'
+      working-directory: build
+      run: ctest --output-on-failure -C ${{ matrix.build_type }} -VV --timeout 30
+
+#  msvc-build:
+#    name: '🧱 MSVC ${{ matrix.build_type }}'
+#    runs-on: windows-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        build_type: [Release, Debug]
+#    steps:
+#    - name: 🧰 Checkout
+#      uses: actions/checkout@v3
+#      with:
+#        fetch-depth: 0
+#    - name: 🛠️ Configure (MSVC)
+#      run: |
+#        cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DLACE_BUILD_BENCHMARKS=ON
+#    - name: 🏗️ Build (MSVC)
+#      run: |
+#        cmake --build build --config ${{ matrix.build_type }}
+#    - name: 🧪 Test (MSVC)
+#      working-directory: build
+#      run: |
+#        ctest -C ${{ matrix.build_type }} --output-on-failure -VV --timeout 30
+
