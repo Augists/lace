@@ -239,11 +239,6 @@ void lace_run_together(Task *task);
 #define LACE_WORKER_ID    ( __lace_worker->worker )
 
 /**
- * Get the core where the current worker is pinned.
- */
-#define LACE_WORKER_PU    ( __lace_worker->pu )
-
-/**
  * Initialize local variables __lace_worker and __lace_dq_head which are required for most Lace functionality.
  * This only works inside a Lace thread.
  */
@@ -454,8 +449,6 @@ typedef struct _WorkerP {
     uint64_t time;
     int level;
 #endif
-
-    int16_t pu;                 // my pu (for HWLOC)
 } WorkerP;
 
 #define LACE_STOLEN   ((Worker*)0)

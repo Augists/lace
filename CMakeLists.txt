@@ -74,7 +74,7 @@ target_link_libraries(lace PUBLIC pthread)
 target_link_libraries(lace14 PUBLIC pthread)
 
 if(LACE_USE_HWLOC)
-    find_package(Hwloc REQUIRED)
+    find_package(HWLOC REQUIRED)
     target_link_libraries(lace PUBLIC ${HWLOC_LIBRARIES})
     target_link_libraries(lace14 PUBLIC ${HWLOC_LIBRARIES})
 endif()

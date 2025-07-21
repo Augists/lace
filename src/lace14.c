@@ -60,6 +60,7 @@ typedef semaphore_t sem_t;
  * HWLOC information
  */
 static hwloc_topology_t topo;
+static hwloc_cpuset_t *cpusets;
 static unsigned int n_nodes, n_cores, n_pus;
 #endif
 
@@ -307,18 +308,7 @@ lace_check_memory(void)
 
     // get location of memory
     hwloc_nodeset_t memlocation = hwloc_bitmap_alloc();
-#ifdef hwloc_get_area_memlocation
     hwloc_get_area_memlocation(topo, mem, sizeof(worker_data), memlocation, HWLOC_MEMBIND_BYNODESET);
-#else
-    hwloc_membind_policy_t policy;
-    int res = hwloc_get_area_membind_nodeset(topo, mem, sizeof(worker_data), memlocation, &policy, HWLOC_MEMBIND_STRICT);
-    if (res == -1) {
-        fprintf(stdout, "Lace warning: hwloc_get_area_membind_nodeset returned -1!\n");
-    }
-    if (policy != HWLOC_MEMBIND_BIND) {
-        fprintf(stdout, "Lace warning: Lace worker memory not bound with BIND policy!\n");
-    }
-#endif
 
     // check if CPU and node are on the same place
     if (!hwloc_bitmap_isincluded(memlocation, cpunodes)) {
@@ -345,54 +335,27 @@ void
 lace_pin_worker(void)
 {
 #if LACE_USE_HWLOC
-    // Get our worker
+    // Get the worker id
     unsigned int worker = lace_get_worker()->worker;
 
-    // Get our core (hwloc object)
-    hwloc_obj_t pu = hwloc_get_obj_by_type(topo, HWLOC_OBJ_CORE, worker % n_cores);
-
-    // Get our copy of the bitmap
-    hwloc_cpuset_t bmp = hwloc_bitmap_dup(pu->cpuset);
-
-    // Get number of PUs in bitmap
-    int n = -1, count=0;
-    while ((n=hwloc_bitmap_next(bmp, n)) != -1) count++;
-
-    // Check if we actually have any logical processors
-    if (count == 0) {
-        fprintf(stderr, "Lace error: trying to pin a worker on an empty core?\n");
-        exit(-1);
+    // Pin the thread
+    if (hwloc_set_cpubind(topo, cpusets[worker], HWLOC_CPUBIND_THREAD) != 0) {
+        fprintf(stderr, "Lace warning: hwloc_set_cpubind failed!\n");
     }
 
-    // Select the correct PU on the core (in case of hyperthreading)
-    int idx = worker / n_cores;
-    if (idx >= count) {
-        fprintf(stderr, "Lace warning: more workers than available logical processors!\n");
-        idx %= count;
+    // Grab nodeset for this cpuset
+    hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
+    if (hwloc_cpuset_to_nodeset(topo, cpusets[worker], nodeset) != 0) {
+        fprintf(stderr, "Lace error: Unable to convert cpuset to nodeset!\n");
     }
 
-    // Find index of PU and restrict bitmap
-    n = -1;
-    for (int i=0; i<=idx; i++) n = hwloc_bitmap_next(bmp, n);
-    hwloc_bitmap_only(bmp, n);
-
-    // Pin our thread...
-    if (hwloc_set_cpubind(topo, bmp, HWLOC_CPUBIND_THREAD) == -1) {
-        fprintf(stderr, "Lace warning: hwloc_set_cpubind returned -1!\n");
-    }
-
-    // Free our copy of the bitmap
-    hwloc_bitmap_free(bmp);
-
-    // Pin the memory area (using the appropriate hwloc function)
-#ifdef HWLOC_MEMBIND_BYNODESET
-    int res = hwloc_set_area_membind(topo, workers_memory[worker], workers_memory_size, pu->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_STRICT | HWLOC_MEMBIND_MIGRATE | HWLOC_MEMBIND_BYNODESET);
-#else
-    int res = hwloc_set_area_membind_nodeset(topo, workers_memory[worker], workers_memory_size, pu->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_STRICT | HWLOC_MEMBIND_MIGRATE);
-#endif
-    if (res != 0) {
+    // Pin the memory area
+    if (hwloc_set_area_membind(topo, workers_memory[worker], workers_memory_size, nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_STRICT | HWLOC_MEMBIND_MIGRATE | HWLOC_MEMBIND_BYNODESET) != 0) {
         fprintf(stderr, "Lace error: Unable to bind worker memory to node!\n");
     }
+
+    // Free allocated memory
+    hwloc_bitmap_free(nodeset);
 
     // Check if everything is on the correct node
     lace_check_memory();
@@ -446,11 +409,6 @@ lace_init_worker(unsigned int worker)
     w->split = w->dq;
     w->allstolen = 0;
     w->worker = worker;
-#if LACE_USE_HWLOC
-    w->pu = worker % n_cores;
-#else
-    w->pu = -1;
-#endif
     w->rng = (((uint64_t)rand())<<32 | rand());
 
 #if LACE_COUNT_EVENTS
@@ -840,6 +798,47 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     lace_quits = 0;
     atomic_store_explicit(&workers_running, 0, memory_order_relaxed);
 
+#if LACE_USE_HWLOC
+    // Distribute workers over cores.
+    // It tries to first use all cores, before using multiple PUs per core, avoiding hyperthreading.
+    cpusets = malloc(n_workers * sizeof(*cpusets));
+    // one way of doing this is just with hwloc_distrib, but this is suboptimal
+    // for (int i=0; i<n_workers; i++) cpusets[i] = hwloc_bitmap_alloc();
+    // hwloc_obj_t root = hwloc_get_root_obj(topo);
+    // hwloc_distrib(topo, &root, 1, cpusets, n_workers, INT_MAX, 0);
+
+    int i=0;
+    hwloc_obj_t core = NULL;
+    hwloc_obj_t cores[n_cores];
+    while ((core = hwloc_get_next_obj_by_type(topo, HWLOC_OBJ_CORE, core)) != NULL) cores[i++] = core;
+
+    i = 0;
+    int j=0, k=0;
+    // i is index of worker, j is index of cpu, k is how many PUs per core we have used
+    while (i < n_workers) {
+        if (j < n_cores && k < hwloc_bitmap_weight(cores[j]->cpuset)) {
+            cpusets[i] = cores[j]->cpuset;
+            // grab the kth in cpuset
+            // turns out this is slightly slower than just pinning to all threads
+            // int idx = hwloc_bitmap_first(cores[j]->cpuset);
+            // for (int kk=1; kk<k; kk++) idx = hwloc_bitmap_next(cores[j]->cpuset, idx);
+            // hwloc_obj_t pu = hwloc_get_pu_obj_by_os_index(topo, idx);
+            // cpusets[i] = pu->cpuset;
+            i++;
+            j++;
+        } else {
+            k++;
+            for (j=0; j<n_cores; j++) {
+                if (k < hwloc_bitmap_weight(cores[j]->cpuset)) break;
+            }
+            if (j == n_cores) {
+                j = 0;
+                k = 0;
+            }
+        }
+    }
+#endif
+
     // Initialize Lace barrier
     lace_barrier_init();
 
@@ -908,6 +907,18 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     if (verbosity) {
 #if LACE_USE_HWLOC
         fprintf(stdout, "Lace startup: %u nodes, %u cores, %u logical processors, %d workers.\n", n_nodes, n_cores, n_pus, n_workers);
+        // Print resulting CPU sets
+        if (verbosity != 0) {
+            for (int i = 0; i < n_workers; ++i) {
+                unsigned int id;
+                hwloc_bitmap_foreach_begin(id, cpusets[i]);
+                hwloc_obj_t pu = hwloc_get_pu_obj_by_os_index(topo, id);
+                // find the core
+                hwloc_obj_t core = hwloc_get_ancestor_obj_by_type(topo, HWLOC_OBJ_CORE, pu);
+                printf("Lace startup: will pin worker thread %d to pu %u (on core %u)\n", i, pu->logical_index, core->logical_index);
+                hwloc_bitmap_foreach_end();
+            }
+        }
 #else
         fprintf(stdout, "Lace startup: %u available cores, %d workers.\n", n_pus, n_workers);
 #endif
