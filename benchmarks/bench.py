@@ -7,86 +7,221 @@ import multiprocessing # cpu_count
 import os # mkdir
 import random # shuffle
 import re # compile
+import statistics # median
 import subprocess # Popen, call
 import sys # stdout, exit
 import time # sleep
+from collections import defaultdict
+
+# First some subroutines to handle output from the log files
 
 def extract(content, thing, letter):
-    s = re.compile(thing+r':[\W]*([\d\.]+)').findall(content)
-    return len(s) == 1 and {letter: s[0]} or {}
+    """
+    Extracts a numeric value associated with a given label from text output.
 
-def proc_result(content):
+    Parameters:
+        content (str): The full output text to search.
+        thing (str): The label to search for (e.g., "Time").
+        letter (str): Short key used in result dictionary (e.g., "Ti").
+
+    Returns:
+        dict: A dictionary {letter: value} if exactly one match is found, else {}.
+    """
+    pattern = re.compile(re.escape(thing) + r':[\W]*([\d\.]+)')
+    matches = pattern.findall(content)
+    return {letter: matches[0]} if len(matches) == 1 else {}
+
+
+def process_result(content):
+    """
+    Extracts all known timing results from benchmark output.
+
+    Parameters:
+        content (str): The full output text from a benchmark run.
+
+    Returns:
+        dict: A dictionary of short labels to extracted string values.
+    """
     times = {}
-    for a,b in [("Time","Ti"), 
-                ("Steal work","Sw"), ("Leap work","Lw"), 
-                ("Steal overhead","So"), ("Leap overhead","Lo"), 
-                ("Steal search","Ss"), ("Leap search","Ls")]:
-        times.update(extract(content, a, b))
+    metrics = [
+        ("Time", "Ti"),
+        ("Steal work", "Sw"),
+        ("Leap work", "Lw"),
+        ("Steal overhead", "So"),
+        ("Leap overhead", "Lo"),
+        ("Steal search", "Ss"),
+        ("Leap search", "Ls")
+    ]
+    for label, short in metrics:
+        times.update(extract(content, label, short))
     return times
 
-def results_to_file(results, filename):
-    with open(filename, "w") as out:
-        out.write("Name; Workers; Key; Value\n")
-        for name, workers, result in results:
-            out.write("{};{};Ti;{}\n".format(name, workers, result))
 
 def run_item_file(name, args, workers, filename, dry=False, fresh=False):
+    """
+    Runs a benchmark command and processes the result, with optional caching.
+
+    Parameters:
+        name (str): Logical name of the benchmark.
+        args (list[str]): Command to execute, as argument list.
+        workers (int): Number of workers used (for logging only).
+        filename (str): File to store or read benchmark output.
+        dry (bool): If True, skip execution.
+        fresh (bool): If True, ignore previous results and rerun benchmark.
+
+    Returns:
+        dict or None: Extracted timing results if successful, or None.
+    """
     if os.path.isfile(filename):
-        # existing file
         with open(filename, "r") as out:
-            times = proc_result(out.read())
+            content = out.read()
+            times = process_result(content)
         if times and 'Ti' in times:
-            if fresh: return None
-            # print("Retrieved {}-{} from previous run... {} seconds!".format(name, workers, times["Ti"]))
-            return times
+            if fresh:
+                # only return if fresh!
+                return None  # not a fresh result
+            else:
+                return times
         else:
-            print("Discarding previous run of {}-{}.".format(name, workers))
+            print(f"Discarding invalid previous run of {name}-{workers}.")
             os.unlink(filename)
 
-    if dry: return None
-
-    if not os.path.isfile(args[0]):
-        print("Program {} does not exist (experiment {})!".format(args[0], name))
+    if dry:
         return None
 
-    print("Performing {}-{}... ".format(name, workers), end='')
-    sys.stdout.flush()
+    if not os.path.isfile(args[0]):
+        print(f"Program {args[0]} does not exist (experiment {name})!")
+        return None
+
+    print(f"Performing {name}-{workers}... ", end='', flush=True)
+
     try:
         with open(filename, "w+") as out:
             subprocess.call(args, stdout=out, stderr=out)
             out.seek(0)
-            times = proc_result(out.read())
+            times = process_result(out.read())
+            time.sleep(2)
     except KeyboardInterrupt:
         os.unlink(filename)
         print("interrupted!")
-        sys.exit()
+        sys.exit(1)
     except OSError:
         os.unlink(filename)
         print("failure! (Program may not have been compiled)")
-        sys.exit()
+        sys.exit(1)
     else:
         if times and 'Ti' in times:
-            print("done in %s seconds!" % times["Ti"])
+            print(f"done in {times['Ti']} seconds!")
         else:
             print("done, but no result!")
-        time.sleep(2)
         return times
 
-def online_variance(data):
-    n = 0
-    mean = 0
-    M2 = 0
- 
-    for x in data:
-        n = n + 1
-        delta = x - mean
-        mean = mean + delta/n
-        M2 = M2 + delta*(x - mean)
 
-    if n < 2: return n, mean, float('nan')
- 
-    variance = M2/(n - 1)
-    return n, mean, variance
+def compute_stats(data, B=1000, seed=None):
+    """
+    Bootstrap-based estimate of median stability.
+    
+    Parameters:
+        data (list of float): Sample values.
+        B (int): Number of bootstrap replications (default: 1000).
+        seed (int or None): Random seed for reproducibility.
+
+    Returns:
+        (n, mean_median, rel_sem):
+            n           = number of input samples
+            mean_median = average of bootstrapped medians
+            rel_sem     = relative standard error (None if n < 2)
+    """
+    n = len(data)
+
+    if n == 0:
+        return n, None, None
+
+    if n == 1:
+        return n, data[0], None
+
+    if seed is not None:
+        random.seed(seed)
+
+    medians = []
+    for _ in range(B):
+        sample = random.choices(data, k=n)
+        medians.append(statistics.median(sample))
+
+    mean_median = statistics.mean(medians)
+    if mean_median == 0:
+        rel_sem = float('inf')
+    else:
+        stdev = statistics.stdev(medians)
+        sem = stdev / math.sqrt(B)
+        rel_sem = sem / mean_median
+
+    return n, mean_median, rel_sem
+
+
+def report_results(results):
+    """
+    Print summary statistics for each (name, workers) pair in results.
+
+    Parameters:
+        results (dict): A mapping from (name, workers) to a list of float timings.
+                        Example: {("exp1", 4): [0.32, 0.30, 0.31], ...}
+    """
+    names = {name for (name, _workers) in results}
+    for exp in sorted(names):
+        workers_in_data = {workers for (name, workers) in results if name == exp}
+        mean_1 = None
+        for w in sorted(workers_in_data):
+            data = list(results.get((exp, w), {}).values())
+            n, mean_m, rel_sem = compute_stats(data)
+
+            rel_sem_str = f"{rel_sem * 100:.2f}%" if rel_sem is not None else "-"
+            mean_str = f"{mean_m:.2f}" if mean_m is not None else "-"
+
+            print(f"{exp + '-' + str(w):<16}: {mean_str:<8} ε={rel_sem_str:<7} n={n:<5}")
+
+
+def get_done(results):
+    """
+    Determine which benchmark configurations have converged.
+
+    A result is considered 'done' if:
+      - It has at least 10 data points.
+      - The relative standard error of the mean of the last 10 medians is < 1%.
+
+    Parameters:
+        results (dict): Mapping from (name, workers) to list of float timings.
+
+    Returns:
+        set of (name, workers): Configurations considered statistically stable.
+    """
+    done = set()
+    for (name, workers), data in results.items():
+        n, _, rel_sem = compute_stats(list(data.values()))
+        if n >= 10 and rel_sem is not None and rel_sem < 0.001:
+            done.add((name, workers))
+    return done
+
+
+def results_to_file(results, filename):
+    """
+    Write collected benchmark results to a CSV-like file.
+
+    Format:
+        Name; Workers; Key; Value
+
+    Only the 'Ti' (Time) key is written, for each sample.
+
+    Parameters:
+        results (dict): Mapping from (name, workers) to list of float timings.
+        filename (str): Output filename.
+    """
+    with open(filename, "w") as out:
+        out.write("Name; Workers; Key; Value\n")
+        for (name, workers), result_list in results.items():
+            for result in result_list.values():
+                out.write(f"{name};{workers};Ti;{result}\n")
+
 
 # ====================================
 # Small Workloads (~4 million nodes):
@@ -143,120 +278,133 @@ T2WL="-t 0 -b 2000 -q 0.4999999995 -m 2 -r 559"
 # (T3WL) Binomial -------------- Tree size = 157063495159, tree depth = 758577, num leaves = 78531748579 (50.00%) 
 T3WL="-t 0 -b 2000 -q 0.4999995 -m 2 -r 559"
 
-def report(results):
-    names = set([name for name, workers, result in results])
-    for exp in sorted(names):
-        workers_in_data = set([workers for name, workers, result in results if name==exp])
-        mean_1 = None
-        for w in sorted(workers_in_data):
-            data = [result for name, workers, result in results if name==exp and workers==w]
-            n, mean, variance = online_variance(data)
-            stdev = math.sqrt(variance)
-            sem = math.sqrt(variance / n)
-            if w == 1: mean_1 = mean
-            if w != 1 and mean_1: speedup = "speedup={}".format(mean_1/mean)
-            else: speedup = ""
-            print("{0:<16}: {1:<8.2f} var={2:<6.2f} se={3:<6.2f} n={4:<5d} {5}".format(exp+"-"+str(w), mean, variance, sem, n, speedup))
 
-if __name__ == "__main__":
-    # Initialize experiments
+def determine_worker_configs():
+    """
+    Determine which worker counts to benchmark, based on CPU count.
+    Returns:
+        tuple: List of worker counts, e.g., (1, 4, 16)
+    """
+    max_cores = multiprocessing.cpu_count()
+    if max_cores > 4:
+        return (1, 4, max_cores)
+    elif max_cores > 2:
+        return (1, 2, max_cores)
+    elif max_cores > 1:
+        return (1, max_cores)
+    return (1,)
+
+
+def discover_experiments(W):
+    """
+    Discover available benchmark programs and generate experiment definitions.
+
+    Parameters:
+        W (tuple): Tuple of worker counts to test (e.g., (1, 4, 16)).
+
+    Returns:
+        list of (name, args, workers): Experiments to run.
+    """
     experiments = []
 
-    # determine number of cores
-    max_cores = multiprocessing.cpu_count()
+    for w in W:
+        def lace(name, exe, *args):
+            if os.path.isfile(exe):
+                experiments.append((name, [f"./{exe}", "-w", str(w), *args], w))
 
-    for w in (1,4,max_cores):
-        if os.path.isfile('fib-lace'):
-            experiments.append(("fib",("./fib-lace", "-w", str(w), "46"), w))
-        if os.path.isfile('uts-lace'):
-            experiments.append(("uts-t2l",["./uts-lace", "-w", str(w)] + globals()["T2L"].split(), w))
-            experiments.append(("uts-t3l",["./uts-lace", "-w", str(w)] + globals()["T3L"].split(), w))
-        if os.path.isfile('nqueens-lace'):
-            experiments.append(("nqueens",("./nqueens-lace", "-w", str(w), "14"), w))
-        if os.path.isfile('matmul-lace'):
-            experiments.append(("matmul",("./matmul-lace", "-w", str(w), "2048"), w))
-        if os.path.isfile('cholesky-lace'):
-            experiments.append(("cholesky",("./cholesky-lace", "-w", str(w), "4000", "40000"), w))
-        if os.path.isfile('integrate-lace'):
-            experiments.append(("integrate",("./integrate-lace", "-w", str(w), "10000"), w))
-        if os.path.isfile('heat-lace'):
-            experiments.append(("heat",("./heat-lace", "-w", str(w)), w))
-        if os.path.isfile('cilksort-lace'):
-            experiments.append(("cilksort",("./cilksort-lace", "-w", str(w)), w))
-        if os.path.isfile('fft-lace'):
-            experiments.append(("fft",("./fft-lace", "-w", str(w)), w))
-        if os.path.isfile('knapsack-lace'):
-            experiments.append(("knapsack",("./knapsack-lace", "-w", str(w)), w))
-        if os.path.isfile('lu-lace'):
-            experiments.append(("lu",("./lu-lace", "-w", str(w)), w))
-        if os.path.isfile('pi-lace'):
-            experiments.append(("pi",("./pi-lace", "-w", str(w)), w))
-        if os.path.isfile('quicksort-lace'):
-            experiments.append(("quicksort",("./quicksort-lace", "-w", str(w)), w))
-        if os.path.isfile('rectmul-lace'):
-            experiments.append(("rectmul",("./rectmul-lace", "-w", str(w)), w))
-        if os.path.isfile('strassen-lace'):
-            experiments.append(("strassen",("./strassen-lace", "-w", str(w)), w))
+        lace("fib", "fib-lace", "46")
+        lace("uts-t2l", "uts-lace", *globals().get("T2L", "").split())
+        lace("uts-t3l", "uts-lace", *globals().get("T3L", "").split())
+        lace("nqueens", "nqueens-lace", "14")
+        lace("matmul", "matmul-lace", "2048")
+        lace("cholesky", "cholesky-lace", "4000", "40000")
+        lace("integrate", "integrate-lace" , "10000")
+        lace("heat", "heat-lace")
+        lace("cilksort", "cilksort-lace")
+        lace("fft", "fft-lace")
+        lace("knapsack", "knapsack-lace")
+        lace("lu", "lu-lace")
+        lace("pi", "pi-lace")
+        lace("quicksort", "quicksort-lace")
+        lace("rectmul", "rectmul-lace")
+        lace("strassen", "strassen-lace")
 
-    if os.path.isfile('fib-seq'):
-        experiments.append(("fib-seq",("./fib-seq", "46"), 1))
-    if os.path.isfile('uts-seq'):
-        experiments.append(("uts-t2l-seq",["./uts-seq"] + globals()["T2L"].split(), 1))
-        experiments.append(("uts-t3l-seq",["./uts-seq"] + globals()["T3L"].split(), 1))
-    if os.path.isfile('nqueens-seq'):
-        experiments.append(("nqueens-seq",("./nqueens-seq", "14"), 1))
-    if os.path.isfile('matmul-seq'):
-        experiments.append(("matmul-seq",("./matmul-seq", "2048"), 1))
-    if os.path.isfile('cholesky-seq'):
-        experiments.append(("cholesky-seq",("./cholesky-seq", "4000", "40000"), 1))
-    if os.path.isfile('integrate-seq'):
-        experiments.append(("integrate-seq",("./integrate-seq", "10000"), 1))
-    if os.path.isfile('heat-seq'):
-        experiments.append(("heat-seq",("./heat-seq",), 1))
-    if os.path.isfile('cilksort-seq'):
-        experiments.append(("cilksort-seq",("./cilksort-seq",), 1))
-    if os.path.isfile('fft-seq'):
-        experiments.append(("fft-seq",("./fft-seq",), 1))
-    if os.path.isfile('knapsack-seq'):
-        experiments.append(("knapsack-seq",("./knapsack-seq",), 1))
-    if os.path.isfile('lu-seq'):
-        experiments.append(("lu-seq",("./lu-seq",), 1))
-    if os.path.isfile('pi-seq'):
-        experiments.append(("pi-seq",("./pi-seq",), 1))
-    if os.path.isfile('quicksort-seq'):
-        experiments.append(("quicksort-seq",("./quicksort-seq",), 1))
-    if os.path.isfile('rectmul-seq'):
-        experiments.append(("rectmul-seq",("./rectmul-seq",), 1))
-    if os.path.isfile('strassen-seq'):
-        experiments.append(("strassen-seq",("./strassen-seq",), 1))
+    def seq(name, exe, *args):
+        if os.path.isfile(exe):
+            experiments.append((f"{name}-seq", [f"./{exe}", *args], 1))
 
-    outdir = sys.argv[1] if len(sys.argv) > 1 else 'exp-out'
+    seq("fib", "fib-seq", "46")
+    seq("uts-t2l", "uts-seq", *globals().get("T2L", "").split())
+    seq("uts-t3l", "uts-seq", *globals().get("T3L", "").split())
+    seq("nqueens", "nqueens-seq", "14")
+    seq("matmul", "matmul-seq", "2048")
+    seq("cholesky", "cholesky-seq", "4000", "40000")
+    seq("integrate", "integrate-seq" , "10000")
+    seq("heat", "heat-seq")
+    seq("cilksort", "cilksort-seq")
+    seq("fft", "fft-seq")
+    seq("knapsack", "knapsack-seq")
+    seq("lu", "lu-seq")
+    seq("pi", "pi-seq")
+    seq("quicksort", "quicksort-seq")
+    seq("rectmul", "rectmul-seq")
+    seq("strassen", "strassen-seq")
 
+    return experiments
+
+
+def run_benchmark_loop(experiments, outdir):
+    """
+    Execute the main benchmark loop: load cached results, then run fresh experiments.
+
+    Parameters:
+        experiments (list): List of (name, args, workers) triples.
+        outdir (str): Output directory to store benchmark result files.
+    """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    results = []
+    results = defaultdict(dict)
 
-    # Get existing results
+    # Load cached results
     for i in itertools.count():
         new_results = False
-        random.shuffle(experiments)
         for name, call, workers in experiments:
-            result = run_item_file(name, call, workers, "{}/{}-{}-{}".format(outdir, name, workers, i), dry=True)
-            if result != None:
-                results.append((name, workers, float(result['Ti'])))
+            result = run_item_file(name, call, workers, f"{outdir}/{name}-{workers}-{i}", dry=True)
+            if result is not None:
+                results[(name, workers)][i] = float(result['Ti'])
                 new_results = True
-        if not new_results: break
+        if not new_results:
+            break
 
-    report(results)
+    report_results(results)
+    done = get_done(results)
     results_to_file(results, "results.csv")
     print()
 
+    # Run fresh experiments
     for i in itertools.count():
+        print(f"Running iteration {i}...")
+        new_data = False
         random.shuffle(experiments)
         for name, call, workers in experiments:
-            result = run_item_file(name, call, workers, "{}/{}-{}-{}".format(outdir, name, workers, i), fresh=True)
-            if result != None: results.append((name, workers, float(result['Ti'])))
-        print("\nResults after {} iterations:".format(i+1))
-        report(results)
-        print()
+            if (name, workers) not in done:
+                result = run_item_file(name, call, workers, f"{outdir}/{name}-{workers}-{i}", fresh=True)
+                if result is not None:
+                    results[(name, workers)][i] = float(result['Ti'])
+                    new_data = True
+        if new_data:
+            print(f"\nResults after {i+1} iterations:")
+            report_results(results)
+            done = get_done(results)
+            print()
+        if len(done) == len(experiments):
+            break
+
+
+if __name__ == "__main__":
+    outdir = sys.argv[1] if len(sys.argv) > 1 else 'exp-out'
+    W = determine_worker_configs()
+    experiments = discover_experiments(W)
+    run_benchmark_loop(experiments, outdir)
+
