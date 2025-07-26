@@ -74,7 +74,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     int d, m;
 

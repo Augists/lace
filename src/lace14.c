@@ -1,6 +1,7 @@
 /*
  * Copyright 2013-2016 Formal Methods and Tools, University of Twente
- * Copyright 2016-2017 Tom van Dijk, Johannes Kepler University Linz
+ * Copyright 2016-2018 Tom van Dijk, Johannes Kepler University Linz
+ * Copyright 2019-2025 Tom van Dijk, Formal Methods and Tools, University of Twente
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +32,6 @@
 
 #ifdef _WIN32
 #include <windows.h> // to use GetSystemInfo
-#undef NEWFRAME // otherwise we can't use NEWFRAME Lace macro
 #endif
 
 #if defined(__APPLE__)
@@ -62,6 +62,8 @@ typedef semaphore_t sem_t;
 static hwloc_topology_t topo;
 static hwloc_cpuset_t *cpusets;
 static unsigned int n_nodes, n_cores, n_pus;
+#else
+static unsigned int n_pus;
 #endif
 
 /**
@@ -70,10 +72,9 @@ static unsigned int n_nodes, n_cores, n_pus;
 static Worker **workers = NULL;
 
 /**
- * Default sizes for program stack and task deque
+ * Size of the task deque
  */
-static size_t stacksize = 0; // 0 means just take default
-static size_t default_dqsize = 100000;
+static size_t dqsize = 100000;
 
 /**
  * Verbosity flag, set with lace_set_verbosity
@@ -93,10 +94,8 @@ static unsigned int n_workers = 0;
  */
 typedef struct {
     Worker worker_public;
-    char pad1[PAD(sizeof(Worker), LINE_SIZE)];
-    LaceWorker worker_private;
-    char pad2[PAD(sizeof(LaceWorker), LINE_SIZE)];
-    Task deque[];
+    alignas(LACE_CACHE_LINE_SIZE) LaceWorker worker_private;
+    alignas(LACE_CACHE_LINE_SIZE) Task deque[];
 } worker_data;
 
 /**
@@ -153,15 +152,6 @@ lace_worker_count()
 }
 
 /**
- * Get the default stack size (or 0 for automatically determine)
- */
-size_t
-lace_get_stacksize()
-{
-    return stacksize;
-}
-
-/**
  * If we are collecting PIE times, then we need some helper functions.
  */
 #if LACE_PIE_TIMES
@@ -190,9 +180,9 @@ us_elapsed(void)
  * Lace barrier implementation, that synchronizes on all workers.
  */
 typedef struct {
-    atomic_int __attribute__((aligned(LINE_SIZE))) count;
-    atomic_int __attribute__((aligned(LINE_SIZE))) leaving;
-    atomic_int __attribute__((aligned(LINE_SIZE))) wait;
+    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) count;
+    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) leaving;
+    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) wait;
 } barrier_t;
 
 barrier_t lace_bar;
@@ -322,11 +312,11 @@ lace_init_worker(unsigned int worker)
     }
 #else
 #if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
-    workers_memory[worker] = _aligned_malloc(workers_memory_size, LINE_SIZE);
+    workers_memory[worker] = _aligned_malloc(workers_memory_size, LACE_CACHE_LINE_SIZE);
 #elif defined(__MINGW32__)
-    workers_memory[worker] = __mingw_aligned_malloc(workers_memory_size, LINE_SIZE);
+    workers_memory[worker] = __mingw_aligned_malloc(workers_memory_size, LACE_CACHE_LINE_SIZE);
 #else
-    workers_memory[worker] = aligned_alloc(LINE_SIZE, workers_memory_size);
+    workers_memory[worker] = aligned_alloc(LACE_CACHE_LINE_SIZE, workers_memory_size);
 #endif
     if (workers_memory[worker] == 0) {
         fprintf(stderr, "Lace error: Unable to allocate memory for the Lace worker!\n");
@@ -354,7 +344,7 @@ lace_init_worker(unsigned int worker)
 
     // Initialize private worker data
     w->_public = wt;
-    w->end = w->dq + default_dqsize;
+    w->end = w->dq + dqsize;
     w->split = w->dq;
     w->allstolen = 0;
     w->worker = worker;
@@ -366,7 +356,7 @@ lace_init_worker(unsigned int worker)
 #endif
 
 #if LACE_PIE_TIMES
-    w->time = gethrtime();
+    w->time = lace_gethrtime();
     w->level = 0;
 #endif
 }
@@ -595,7 +585,7 @@ void lace_steal_random(LaceWorker *__lace_worker)
  * Main Lace worker implementation.
  * Steal from random victims until "quit" is set.
  */
-VOID_TASK_1(lace_steal_loop, atomic_int*, quit);
+VOID_TASK_1(lace_steal_loop, atomic_int*, quit)
 
 void lace_steal_loop(LaceWorker* lace_worker, atomic_int* quit)
 {
@@ -607,7 +597,7 @@ void lace_steal_loop(LaceWorker* lace_worker, atomic_int* quit)
     Worker ** victim = self;
 
 #if LACE_PIE_TIMES
-    lace_worker->time = gethrtime();
+    lace_worker->time = lace_gethrtime();
 #endif
 
     uint32_t seed = worker_id;
@@ -677,7 +667,7 @@ lace_worker_thread(void* arg)
     lace_steal_loop(lace_get_worker(), &lace_quits);
 
     // Time worker exit event
-    lace_time_event(__lace_worker, 9);
+    lace_time_event(lace_get_worker(), 9);
 
     // Signal that we stopped
     workers_running -= 1;
@@ -695,38 +685,11 @@ lace_set_verbosity(int level)
 }
 
 /**
- * Set the program stack size of Lace threads
- */
-void
-lace_set_stacksize(size_t new_stacksize)
-{
-    stacksize = new_stacksize;
-}
-
-unsigned int
-lace_get_pu_count(void)
-{
-#ifdef WIN32
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    unsigned int n_pus = sysinfo.dwNumberOfProcessors;
-#elif defined(sched_getaffinity)
-    cpu_set_t cs;
-    CPU_ZERO(&cs);
-    sched_getaffinity(0, sizeof(cs), &cs);
-    unsigned int n_pus = CPU_COUNT(&cs);
-#else
-    unsigned int n_pus = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-    return n_pus;
-}
-
-/**
  * Initialize Lace for work-stealing with <n> workers, where
  * each worker gets a task deque with <dqsize> elements.
  */
 void
-lace_start(unsigned int _n_workers, size_t dqsize)
+lace_start(unsigned int _n_workers, size_t dequesize, size_t stacksize)
 {
 #if LACE_USE_HWLOC
     // Initialize topology and information about cpus
@@ -737,13 +700,23 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     n_cores = hwloc_get_nbobjs_by_type(topo, HWLOC_OBJ_CORE);
     n_pus = hwloc_get_nbobjs_by_type(topo, HWLOC_OBJ_PU);
 #else
-    unsigned int n_pus = lace_get_pu_count();
+#ifdef WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    n_pus = sysinfo.dwNumberOfProcessors;
+#elif defined(sched_getaffinity)
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    sched_getaffinity(0, sizeof(cs), &cs);
+    n_pus = CPU_COUNT(&cs);
+#else
+    n_pus = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 #endif
 
     // Initialize globals
     n_workers = _n_workers == 0 ? n_pus : _n_workers;
-    if (dqsize != 0) default_dqsize = dqsize;
-    else dqsize = default_dqsize;
+    dqsize = dequesize > 0 ? dequesize : 100000;
     lace_quits = 0;
     atomic_store_explicit(&workers_running, 0, memory_order_relaxed);
 
@@ -756,16 +729,16 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     // hwloc_obj_t root = hwloc_get_root_obj(topo);
     // hwloc_distrib(topo, &root, 1, cpusets, n_workers, INT_MAX, 0);
 
-    int i=0;
+    unsigned int i=0;
     hwloc_obj_t core = NULL;
     hwloc_obj_t cores[n_cores];
     while ((core = hwloc_get_next_obj_by_type(topo, HWLOC_OBJ_CORE, core)) != NULL) cores[i++] = core;
 
     i = 0;
-    int j=0, k=0;
+    unsigned int j=0, k=0;
     // i is index of worker, j is index of cpu, k is how many PUs per core we have used
     while (i < n_workers) {
-        if (j < n_cores && k < hwloc_bitmap_weight(cores[j]->cpuset)) {
+        if (j < n_cores && k < (unsigned)hwloc_bitmap_weight(cores[j]->cpuset)) {
             cpusets[i] = cores[j]->cpuset;
             // grab the kth in cpuset
             // turns out this is slightly slower than just pinning to all threads
@@ -778,7 +751,7 @@ lace_start(unsigned int _n_workers, size_t dqsize)
         } else {
             k++;
             for (j=0; j<n_cores; j++) {
-                if (k < hwloc_bitmap_weight(cores[j]->cpuset)) break;
+                if (k < (unsigned)hwloc_bitmap_weight(cores[j]->cpuset)) break;
             }
             if (j == n_cores) {
                 j = 0;
@@ -799,21 +772,21 @@ lace_start(unsigned int _n_workers, size_t dqsize)
     lace_awaken_count = 0;
 
     // Allocate array with all workers
-    // first make sure that the amount to allocate (n_workers times pointer) is a multiple of LINE_SIZE
+    // first make sure that the amount to allocate (n_workers times pointer) is a multiple of LACE_CACHE_LINE_SIZE
     size_t to_allocate = n_workers * sizeof(void*);
-    to_allocate = (to_allocate+LINE_SIZE-1) & (~(LINE_SIZE-1));
+    to_allocate = (to_allocate+LACE_CACHE_LINE_SIZE-1) & (~(LACE_CACHE_LINE_SIZE-1));
 #if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
-    workers = _aligned_malloc(to_allocate, LINE_SIZE);
-    workers_p = _aligned_malloc(to_allocate, LINE_SIZE);
-    workers_memory = _aligned_malloc(to_allocate, LINE_SIZE);
+    workers = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers_p = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers_memory = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
 #elif defined(__MINGW32__)
-    workers = __mingw_aligned_malloc(to_allocate, LINE_SIZE);
-    workers_p = __mingw_aligned_malloc(to_allocate, LINE_SIZE);
-    workers_memory = __mingw_aligned_malloc(to_allocate, LINE_SIZE);
+    workers = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers_p = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers_memory = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
 #else
-    workers = aligned_alloc(LINE_SIZE, to_allocate);
-    workers_p = aligned_alloc(LINE_SIZE, to_allocate);
-    workers_memory = aligned_alloc(LINE_SIZE, to_allocate);
+    workers = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
+    workers_p = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
+    workers_memory = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
 #endif
     if (workers == 0 || workers_p == 0 || workers_memory == 0) {
         fprintf(stderr, "Lace error: unable to allocate memory for the workers!\n");
@@ -837,6 +810,7 @@ lace_start(unsigned int _n_workers, size_t dqsize)
 
     // Set the stack size
     if (stacksize != 0) {
+        if (stacksize < 16*1024*1024) stacksize = 16*1024*1024;
         pthread_attr_setstacksize(&worker_attr, stacksize);
     } else {
         // on certain systems, the default stack size is too small (e.g. OSX)
@@ -858,7 +832,7 @@ lace_start(unsigned int _n_workers, size_t dqsize)
         fprintf(stdout, "Lace startup: %u nodes, %u cores, %u logical processors, %d workers.\n", n_nodes, n_cores, n_pus, n_workers);
         // Print resulting CPU sets
         if (verbosity != 0) {
-            for (int i = 0; i < n_workers; ++i) {
+            for (unsigned int i = 0; i < n_workers; ++i) {
                 unsigned int id;
                 hwloc_bitmap_foreach_begin(id, cpusets[i]);
                 hwloc_obj_t pu = hwloc_get_pu_obj_by_os_index(topo, id);
@@ -879,7 +853,7 @@ lace_start(unsigned int _n_workers, size_t dqsize)
 #if LACE_PIE_TIMES
     // Initialize counters for pie times
     us_elapsed_start();
-    count_at_start = gethrtime();
+    count_at_start = lace_gethrtime();
 #endif
 
     /* Report startup if verbose */
@@ -922,12 +896,12 @@ lace_count_reset()
 
 #if LACE_PIE_TIMES
     for (i=0;i<n_workers;i++) {
-        workers_p[i]->time = gethrtime();
+        workers_p[i]->time = lace_gethrtime();
         if (i != 0) workers_p[i]->level = 0;
     }
 
     us_elapsed_start();
-    count_at_start = gethrtime();
+    count_at_start = lace_gethrtime();
 #endif
 #endif
 }
@@ -996,7 +970,7 @@ lace_count_report_file(FILE *file)
 #endif
 
 #if LACE_PIE_TIMES
-    count_at_end = gethrtime();
+    count_at_end = lace_gethrtime();
 
     uint64_t count_per_ms = (count_at_end - count_at_start) / (us_elapsed() / 1000);
     double dcpm = (double)count_per_ms;
@@ -1167,7 +1141,7 @@ lace_yield(LaceWorker *worker)
  * Root task for the TOGETHER method.
  * Ensures after executing, to steal random tasks until done.
  */
-VOID_TASK_2(lace_together_root, Task*, t, atomic_int*, finished);
+VOID_TASK_2(lace_together_root, Task*, t, atomic_int*, finished)
 
 void
 lace_together_root(LaceWorker* lace_worker, Task* t, atomic_int* finished)
@@ -1182,7 +1156,7 @@ lace_together_root(LaceWorker* lace_worker, Task* t, atomic_int* finished)
     while (*finished != 0) lace_steal_random(lace_worker);
 }
 
-VOID_TASK_1(lace_wrap_together, Task*, task);
+VOID_TASK_1(lace_wrap_together, Task*, task)
 
 void
 lace_wrap_together(LaceWorker* worker, Task* task)
@@ -1214,7 +1188,7 @@ lace_wrap_together(LaceWorker* worker, Task* task)
     lace_exec_in_new_frame(worker, &_t2);
 }
 
-VOID_TASK_2(lace_newframe_root, Task*, t, atomic_int*, done);
+VOID_TASK_2(lace_newframe_root, Task*, t, atomic_int*, done)
 void
 lace_newframe_root(LaceWorker *lace_worker, Task* t, atomic_int *done)
 {
@@ -1222,7 +1196,7 @@ lace_newframe_root(LaceWorker *lace_worker, Task* t, atomic_int *done)
     *done = 1;
 }
 
-VOID_TASK_1(lace_wrap_newframe, Task*, task);
+VOID_TASK_1(lace_wrap_newframe, Task*, task)
 
 void
 lace_wrap_newframe(LaceWorker* worker, Task* task)

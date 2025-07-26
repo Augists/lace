@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     init();
     prep();

@@ -60,6 +60,7 @@ add_seq_benchmark(cilksort-seq cilksort/cilksort-seq.c)
 add_seq_benchmark(dfs-seq dfs/dfs-seq.c)
 
 add_lace_benchmark(fib-lace fib/fib-lace.c)
+add_lace_benchmark(fib-cpp fib/fib-lace.cpp)
 add_lace_benchmark(cholesky-lace cholesky/cholesky-lace.c)
 add_lace14_benchmark(fft-lace fft/fft-lace.c)
 add_lace_benchmark(integrate-lace integrate/integrate-lace.c)

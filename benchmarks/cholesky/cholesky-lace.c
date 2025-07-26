@@ -613,7 +613,7 @@ int main(int argc, char **argv)
         nonzeros = atoi(argv[optind+1]);
     }
 
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     printf("Running cholesky n=%d nonzeros=%d with %u worker(s)...\n", n, nonzeros, lace_worker_count());
 

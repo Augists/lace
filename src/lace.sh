@@ -6,8 +6,8 @@ if [ "$1" -le 1 ] ; then k=2; else k=$1; fi
 # Copyright notice:
 echo "/* 
  * Copyright 2013-2016 Formal Methods and Tools, University of Twente
- * Copyright 2016-2017 Tom van Dijk, Johannes Kepler University Linz
- * Copyright 2019-2022 Tom van Dijk, Formal Methods and Tools, University of Twente
+ * Copyright 2016-2018 Tom van Dijk, Johannes Kepler University Linz
+ * Copyright 2019-2025 Tom van Dijk, Formal Methods and Tools, University of Twente
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,15 +23,22 @@ echo "/*
  */"
 
 echo '
-#include <assert.h>
-#include <unistd.h>
+#pragma once
+#ifndef __LACE_H__
+#define __LACE_H__
+
+// Standard includes
+#include <assert.h> // for static_assert
+#include <stdalign.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <pthread.h> /* for pthread_t */
+#include <pthread.h>
+#include <unistd.h>
 
 #ifndef __cplusplus
   #include <stdatomic.h>
 #else
+  // Even though we are not really intending to support C++...
   // Compatibility with C11
   #include <atomic>
   #define _Atomic(T) std::atomic<T>
@@ -41,109 +48,36 @@ echo '
   using std::memory_order_seq_cst;
 #endif
 
-#include <lace_config.h>
-
-#ifndef __LACE_H__
-#define __LACE_H__
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/**
- * Type definitions used in the functions below.
- * - LaceWorker contains the (private) Worker data
- * - Task contains a single Task
- */
+// Lace version
+#define LACE_VERSION_MAJOR 2
+#define LACE_VERSION_MINOR 0
+#define LACE_VERSION_PATCH 0
+
+// Platform configuration
+#include <lace_config.h>
+
+// Architecture configuration
+#ifndef LACE_CACHE_LINE_SIZE
+// Override LACE_CACHE_LINE_SIZE (e.g., with -DLACE_CACHE_LINE_SIZE=128) if targeting certain architectures.
+#define LACE_CACHE_LINE_SIZE 64
+#endif
+
+// Forward declarations
 typedef struct _LaceWorker LaceWorker;
 typedef struct _Task Task;
 
-/* Typical cacheline size of system architectures */
-#ifndef LINE_SIZE
-#define LINE_SIZE 64
-#endif
-
-/* The size of a pointer, 8 bytes on a 64-bit architecture */
-#define P_SZ (sizeof(void *))
-
-#define PAD(x,b) ( ( (b) - ((x)%(b)) ) & ((b)-1) ) /* b must be power of 2 */
-#define ROUND(x,b) ( (x) + PAD( (x), (b) ) )
-
-/* The size is in bytes. Note that this is without the extra overhead from Lace.
-   The value must be greater than or equal to the maximum size of your tasks.
-   The task size is the maximum of the size of the result or of the sum of the parameter sizes. */
-#ifndef LACE_TASKSIZE
-#define LACE_TASKSIZE ('$k')*P_SZ
-#endif
-
-#define TASK_COMMON_FIELDS(type)     \
-    void (*f)(LaceWorker *, struct type *);        \
-    _Atomic(struct _Worker*) thief;
-
-struct __lace_common_fields_only { TASK_COMMON_FIELDS(_Task) };
-#define LACE_COMMON_FIELD_SIZE sizeof(struct __lace_common_fields_only)
-
-static_assert((LACE_COMMON_FIELD_SIZE % P_SZ) == 0, "LACE_COMMON_FIELD_SIZE is not a multiple of P_SZ");
-
-typedef struct _Task {
-    TASK_COMMON_FIELDS(_Task)
-    char d[LACE_TASKSIZE];
-} Task;
-
-static_assert((sizeof(Task) % LINE_SIZE) == 0, "Task size should be a multiple of LINE_SIZE");
-
-/* hopefully packed? */
-typedef union {
-    struct {
-        _Atomic(uint32_t) tail;
-        _Atomic(uint32_t) split;
-    } ts;
-    _Atomic(uint64_t) v;
-} TailSplit;
-
-typedef union {
-    struct {
-        uint32_t tail;
-        uint32_t split;
-    } ts;
-    uint64_t v;
-} TailSplitNA;
-
-typedef struct _Worker {
-    Task *dq;
-    TailSplit ts;
-    uint8_t allstolen;
-
-    char pad1[PAD(P_SZ+sizeof(TailSplit)+1, LINE_SIZE)];
-
-    uint8_t movesplit;
-} Worker;
-
-typedef struct _LaceWorker {
-    Task *head;                 // my head
-    Task *split;                // same as dq+ts.ts.split
-    Task *end;                  // dq+dq_size
-    Task *dq;                   // my queue
-    Worker *_public;            // pointer to public Worker struct
-    uint64_t rng;               // my random seed (for lace_trng)
-    uint32_t seed;              // my random seed (for lace_steal_random)
-    uint16_t worker;            // what is my worker id?
-    uint8_t allstolen;          // my allstolen
-
-#if LACE_COUNT_EVENTS
-    uint64_t ctr[CTR_MAX];      // counters
-    uint64_t time;
-    int level;
-#endif
-
-    int16_t pu;                 // my pu (for HWLOC)
-} LaceWorker;
-
-#ifdef __linux__
-extern __thread LaceWorker *lace_thread_worker;
-#else
-extern pthread_key_t lace_thread_worker_key;
-#endif
+/**************************************
+ * Lifecycle functions
+ * - lace_set_verbosity
+ * - lace_start
+ * - lace_suspend
+ * - lace_resume
+ * - lace_stop
+ **************************************/
 
 /**
  * Set verbosity level (0 = no startup messages, 1 = startup messages)
@@ -152,114 +86,80 @@ extern pthread_key_t lace_thread_worker_key;
 void lace_set_verbosity(int level);
 
 /**
- * Set the program stack size of Lace worker threads. (Not really needed, default is OK.)
- */
-void lace_set_stacksize(size_t stacksize);
-
-/**
- * Get the program stack size of Lace worker threads.
- * If this returns 0, it uses the default.
- */
-size_t lace_get_stacksize(void);
-
-/**
- * Get the number of available PUs (hardware threads)
- */
-unsigned int lace_get_pu_count(void);
-
-/**
- * Start Lace with <n_workers> workers and a a task deque size of <dqsize> per worker.
+ * Start Lace with <n_workers> workers and a task deque size of <dqsize> per worker.
  * If <n_workers> is set to 0, automatically detects available cores.
- * If <dqsize> is est to 0, uses a reasonable default value.
+ * If <dqsize> is set to 0, uses a reasonable default value.
+ * If <stacksize> is set to 0, uses the minimum of 16M and the stack size of the calling thread.
  */
-void lace_start(unsigned int n_workers, size_t dqsize);
+void lace_start(unsigned int n_workers, size_t dqsize, size_t stacksize);
 
 /**
- * Suspend all workers.
- * Call this method from outside Lace threads.
+ * Suspend all workers. Do not call this from inside Lace threads.
  */
 void lace_suspend(void);
 
 /**
- * Resume all workers.
- * Call this method from outside Lace threads.
+ * Resume all workers. Do not call this from inside Lace threads.
  */
 void lace_resume(void);
 
 /**
- * Stop Lace.
- * Call this method from outside Lace threads.
+ * Stop Lace. Do not call this from inside Lace threads.
  */
 void lace_stop(void);
 
-/**
- * Steal a random task.
- * Only use this from inside a Lace task.
- */
-void lace_steal_random(LaceWorker*);
+/**************************************
+ * Worker context
+ * - lace_worker_count
+ * - lace_is_worker
+ * - lace_get_worker
+ * - lace_worker_id
+ * - lace_rng
+ **************************************/
 
 /**
- * Enter the Lace barrier. (all active workers must enter it before we can continue)
- * Only run this from inside a Lace task.
- */
-void lace_barrier(void);
-
-/**
- * Retrieve the number of Lace workers
+ * Retrieve the number of Lace workers.
  */
 unsigned int lace_worker_count(void);
 
 /**
- * Retrieve the current worker data.
- * Only run this from inside a Lace task.
- * (Used by LACE_VARS)
- */
-static inline LaceWorker*
-lace_get_worker(void)
-{ 
-#ifdef __linux__
-    return lace_thread_worker;
-#else
-    return (LaceWorker*)pthread_getspecific(lace_thread_worker_key);
-#endif
-}
-
-/**
  * Retrieve whether we are running in a Lace worker. Returns 1 if this is the case, 0 otherwise.
  */
-static inline int lace_is_worker(void) { return lace_get_worker() != NULL ? 1 : 0; }
+static inline int lace_is_worker(void) __attribute__((unused));
 
 /**
- * Retrieve the current head of the deque of the worker.
+ * Retrieve the current worker data.
  */
-static inline Task *lace_get_head(void) { return lace_get_worker()->head; }
+static inline LaceWorker* lace_get_worker(void) __attribute__((unused));
 
 /**
- * Helper function to call from outside Lace threads.
- * This helper function is used by the _RUN methods for the RUN() macro.
+ * Get the current worker id. Returns -1 if not inside a Lace thread.
  */
-void lace_run_task(Task *task);
+static inline int lace_worker_id(void) __attribute__((unused));
 
 /**
- * Helper function to call from outside Lace threads.
- * This helper function is used by the _RUN methods for the RUN() macro.
+ * Thread-local pseudo-random number generator for Lace workers.
  */
-void lace_run_task_exclusive(Task *task);
+static inline uint64_t lace_rng(LaceWorker *lace_worker) __attribute__((unused));
+
+/**************************************
+ * Task operations
+ * - lace_barrier
+ * - lace_drop
+ * - lace_is_stolen_task
+ * - lace_is_completed_task
+ * - lace_steal_random
+ * - lace_check_yield
+ * - lace_make_all_shared
+ * - lace_get_head
+ **************************************/
 
 /**
- * Helper function to start a new task execution (task frame) on a given task.
- * This helper function is used by the _NEWFRAME methods for the NEWFRAME() macro
- * Only when the task is done, do workers continue with the previous task frame.
+ * Enter the Lace barrier. This is a collective operation.
+ * All workers must enter it before the method returns for all workers.
+ * Only run this from inside a Lace task.
  */
-void lace_run_newframe(Task *task);
-
-/**
- * Helper function to make all run a given task together.
- * This helper function is used by the _TOGETHER methods for the TOGETHER() macro
- * They all start the task in a lace_barrier and complete it with a lace barrier.
- * Meaning they all start together, and all end together.
- */
-void lace_run_together(Task *task);
+void lace_barrier(void);
 
 /**
  * Instead of SYNCing on the next task, drop the task (unless stolen already)
@@ -267,85 +167,75 @@ void lace_run_together(Task *task);
 void lace_drop(LaceWorker *lace_worker);
 
 /**
- * Get the current worker id.
+ * Returns 1 if the given task is stolen, 0 otherwise.
  */
-static inline int lace_worker_id(void) { return lace_get_worker() == NULL ? -1 : lace_get_worker()->worker; }
+static inline int lace_is_stolen_task(Task* t) __attribute__((unused));
 
 /**
- * True if the given task is stolen, False otherwise.
+ * Returns 1 if the given task is completed, 0 otherwise.
  */
-static inline int lace_is_stolen_task(Task* t) { return ((size_t)(Worker*)t->thief > 1) ? 1 : 0; }
+static inline int lace_is_completed_task(Task* t) __attribute__((unused));
 
 /**
- * True if the given task is completed, False otherwise.
+ * Try to steal and execute a random task from a random worker.
+ * Only use this from inside a Lace task.
  */
-static inline int lace_is_completed_task(Task* t) { return ((size_t)(Worker*)t->thief == 2) ? 1 : 0; }
-
-/**
- * Retrieves a pointer to the result of the given task.
- */
-#define lace_task_result(t) (&t->d[0])
+void lace_steal_random(LaceWorker*);
 
 /**
  * Check if current tasks must be interrupted, and if so, interrupt.
  */
-static inline void lace_check_yield(LaceWorker*);
+static inline void lace_check_yield(LaceWorker*) __attribute__((unused));
 
 /**
  * Make all tasks of the current worker shared.
  */
-static inline void lace_make_all_shared(void);
+static inline void lace_make_all_shared(void) __attribute__((unused));
 
 /**
- * Compute a random number, thread-local (so scalable)
+ * Retrieve the current head of the deque of the worker.
  */
-#define LACE_TRNG (__lace_worker->rng = 2862933555777941757ULL * __lace_worker->rng + 3037000493ULL)
+static inline Task *lace_get_head(void) __attribute__((unused));
 
-/* Some flags that influence Lace behavior */
+/**************************************
+ * Statistics
+ * - lace_count_report_file
+ * - lace_count_reset
+ * - lace_count_report
+ **************************************/
+
+/**
+ * Reset internal stats counters.
+ */
+void lace_count_reset(void);
+
+/**
+ * Report Lace stats to the given file.
+ */
+void lace_count_report_file(FILE *file);
+
+/**
+ * Report Lace stats to stdout.
+ */
+static inline __attribute__((unused)) void lace_count_report(void)
+{
+    lace_count_report_file(stdout);
+}
+
+/**************************************
+ * Internals
+ **************************************/
+
+/* The size is in bytes. Note that this is without the extra overhead from Lace.
+   The value must be greater than or equal to the maximum size of your tasks.
+   The task size is the maximum of the size of the result or of the sum of the parameter sizes. */
+#ifndef LACE_TASKSIZE
+#define LACE_TASKSIZE ('$k')*sizeof(void*)
+#endif
 
 #ifndef LACE_COUNT_EVENTS
 #define LACE_COUNT_EVENTS (LACE_PIE_TIMES || LACE_COUNT_TASKS || LACE_COUNT_STEALS || LACE_COUNT_SPLITS)
 #endif
-
-#if LACE_PIE_TIMES
-/* High resolution timer */
-static inline uint64_t gethrtime(void)
-{
-    uint32_t hi, lo;
-    asm volatile ("rdtsc" : "=a"(lo), "=d"(hi) :: "memory");
-    return (uint64_t)hi<<32 | lo;
-}
-#endif
-
-#if LACE_COUNT_EVENTS
-void lace_count_reset(void);
-void lace_count_report_file(FILE *file);
-#endif
-
-#if LACE_COUNT_TASKS
-#define PR_COUNTTASK(s) PR_INC(s,CTR_tasks)
-#else
-#define PR_COUNTTASK(s) /* Empty */
-#endif
-
-#if LACE_COUNT_STEALS
-#define PR_COUNTSTEALS(s,i) PR_INC(s,i)
-#else
-#define PR_COUNTSTEALS(s,i) /* Empty */
-#endif
-
-#if LACE_COUNT_SPLITS
-#define PR_COUNTSPLITS(s,i) PR_INC(s,i)
-#else
-#define PR_COUNTSPLITS(s,i) /* Empty */
-#endif
-
-#if LACE_COUNT_EVENTS
-#define PR_ADD(s,i,k) ( ((s)->ctr[i])+=k )
-#else
-#define PR_ADD(s,i,k) /* Empty */
-#endif
-#define PR_INC(s,i) PR_ADD(s,i,1)
 
 typedef enum {
 #ifdef LACE_COUNT_TASKS
@@ -381,6 +271,196 @@ typedef enum {
     CTR_MAX
 } CTR_index;
 
+#define TASK_COMMON_FIELDS(type)                   \
+    void (*f)(LaceWorker *, struct type *);        \
+    _Atomic(struct _Worker*) thief;
+
+typedef struct _Task {
+    TASK_COMMON_FIELDS(_Task)
+    char d[LACE_TASKSIZE];
+} Task;
+
+static_assert(LACE_CACHE_LINE_SIZE % 64 == 0, "LACE_CACHE_LINE_SIZE must be a multiple of 64");
+static_assert((sizeof(Task) % LACE_CACHE_LINE_SIZE) == 0, "Task size should be a multiple of LACE_CACHE_LINE_SIZE");
+
+typedef union {
+    struct {
+        _Atomic(uint32_t) tail;
+        _Atomic(uint32_t) split;
+    } ts;
+    _Atomic(uint64_t) v;
+} TailSplit;
+
+typedef union {
+    struct {
+        uint32_t tail;
+        uint32_t split;
+    } ts;
+    uint64_t v;
+} TailSplitNA;
+
+static_assert(sizeof(TailSplit) == 8, "TailSplit size should be 8 bytes");
+static_assert(sizeof(TailSplitNA) == 8, "TailSplit size should be 8 bytes");
+
+typedef struct _Worker {
+    Task *dq;
+    TailSplit ts;
+    uint8_t allstolen;
+
+    alignas(LACE_CACHE_LINE_SIZE) uint8_t movesplit;
+} Worker;
+
+typedef struct _LaceWorker {
+    Task *head;                 // my head
+    Task *split;                // same as dq+ts.ts.split
+    Task *end;                  // dq+dq_size
+    Task *dq;                   // my queue
+    Worker *_public;            // pointer to public Worker struct
+    uint64_t rng;               // my random seed (for lace_rng)
+    uint32_t seed;              // my random seed (for lace_steal_random)
+    uint16_t worker;            // what is my worker id?
+    uint8_t allstolen;          // my allstolen
+
+#if LACE_COUNT_EVENTS
+    uint64_t ctr[CTR_MAX];      // counters
+    uint64_t time;
+    int level;
+#endif
+} LaceWorker;
+
+#ifdef __linux__
+extern __thread LaceWorker *lace_thread_worker;
+
+static inline LaceWorker* lace_get_worker(void)
+{
+    return lace_thread_worker;
+}
+#else
+extern pthread_key_t lace_thread_worker_key;
+
+static inline LaceWorker* lace_get_worker(void)
+{
+    return (LaceWorker*)pthread_getspecific(lace_thread_worker_key);
+}
+#endif
+
+/**
+ * Retrieve whether we are running in a Lace worker. Returns 1 if this is the case, 0 otherwise.
+ */
+static inline int lace_is_worker(void)
+{
+    return lace_get_worker() != NULL ? 1 : 0;
+}
+
+/**
+ * Retrieve the current head of the deque of the worker.
+ */
+static inline Task *lace_get_head(void)
+{
+    return lace_get_worker()->head;
+}
+
+/**
+ * Helper function to call from outside Lace threads.
+ * This helper function is used by the _RUN methods for the RUN() macro.
+ */
+void lace_run_task(Task *task);
+
+/**
+ * Helper function to call from outside Lace threads.
+ * This helper function is used by the _RUN methods for the RUN() macro.
+ */
+void lace_run_task_exclusive(Task *task);
+
+/**
+ * Helper function to start a new task execution (task frame) on a given task.
+ * This helper function is used by the _NEWFRAME methods for the NEWFRAME() macro
+ * Only when the task is done, do workers continue with the previous task frame.
+ */
+void lace_run_newframe(Task *task);
+
+/**
+ * Helper function to make all run a given task together.
+ * This helper function is used by the _TOGETHER methods for the TOGETHER() macro
+ * They all start the task in a lace_barrier and complete it with a lace barrier.
+ * Meaning they all start together, and all end together.
+ */
+void lace_run_together(Task *task);
+
+/**
+ * Get the current worker id, or -1 if not inside a Lace thread.
+ */
+static inline int lace_worker_id(void)
+{
+    return lace_get_worker() == NULL ? -1 : lace_get_worker()->worker;
+}
+
+/**
+ * 1 if the given task is stolen, 0 otherwise.
+ */
+static inline int lace_is_stolen_task(Task* t)
+{
+    return ((size_t)(Worker*)t->thief > 1) ? 1 : 0;
+}
+
+/**
+ * 1 if the given task is completed, 0 otherwise.
+ */
+static inline int lace_is_completed_task(Task* t)
+{
+    return ((size_t)(Worker*)t->thief == 2) ? 1 : 0;
+}
+
+/**
+ * Retrieves a pointer to the result of the given task.
+ */
+#define lace_task_result(t) (&t->d[0])
+
+/**
+ * Compute a random number, thread-local (so scalable)
+ */
+static inline uint64_t lace_rng(LaceWorker *worker)
+{
+    return (worker->rng = 2862933555777941757ULL * worker->rng + 3037000493ULL);
+}
+
+/* Some flags that influence Lace behavior */
+
+#if LACE_PIE_TIMES
+/* High resolution timer */
+static inline uint64_t lace_gethrtime(void)
+{
+    uint32_t hi, lo;
+    asm volatile ("rdtsc" : "=a"(lo), "=d"(hi) :: "memory");
+    return (uint64_t)hi<<32 | lo;
+}
+#endif
+
+#if LACE_COUNT_TASKS
+#define PR_COUNTTASK(s) PR_INC(s,CTR_tasks)
+#else
+#define PR_COUNTTASK(s) /* Empty */
+#endif
+
+#if LACE_COUNT_STEALS
+#define PR_COUNTSTEALS(s,i) PR_INC(s,i)
+#else
+#define PR_COUNTSTEALS(s,i) /* Empty */
+#endif
+
+#if LACE_COUNT_SPLITS
+#define PR_COUNTSPLITS(s,i) PR_INC(s,i)
+#else
+#define PR_COUNTSPLITS(s,i) /* Empty */
+#endif
+
+#if LACE_COUNT_EVENTS
+#define PR_ADD(s,i,k) ( ((s)->ctr[i])+=k )
+#else
+#define PR_ADD(s,i,k) /* Empty */
+#endif
+#define PR_INC(s,i) PR_ADD(s,i,1)
+
 #define THIEF_EMPTY     ((struct _Worker*)0x0)
 #define THIEF_TASK      ((struct _Worker*)0x1)
 #define THIEF_COMPLETED ((struct _Worker*)0x2)
@@ -390,9 +470,9 @@ typedef enum {
 #define LACE_NOWORK   ((Worker*)2)
 
 #if LACE_PIE_TIMES
-static void lace_time_event( LaceWorker *w, int event )
+static __attribute__((unused)) void lace_time_event( LaceWorker *w, int event )
 {
-    uint64_t now = gethrtime(),
+    uint64_t now = lace_gethrtime(),
              prev = w->time;
 
     switch( event ) {
@@ -492,7 +572,7 @@ void lace_abort_stack_overflow(void) __attribute__((noreturn));
 typedef struct
 {
     _Atomic(Task*) t;
-    char pad[LINE_SIZE-sizeof(Task *)];
+    char pad[LACE_CACHE_LINE_SIZE-sizeof(Task *)];
 } lace_newframe_t;
 
 extern lace_newframe_t lace_newframe;
@@ -505,13 +585,17 @@ void lace_yield(LaceWorker*);
 /**
  * Check if current tasks must be interrupted, and if so, interrupt.
  */
-static inline void lace_check_yield(LaceWorker *w) { if (__builtin_expect(atomic_load_explicit(&lace_newframe.t, memory_order_relaxed) != NULL, 0)) lace_yield(w); }
+static inline void lace_check_yield(LaceWorker *w)
+{
+    if (__builtin_expect(atomic_load_explicit(&lace_newframe.t, memory_order_relaxed) != NULL, 0)) {
+        lace_yield(w);
+    }
+}
 
 /**
  * Make all tasks of the current worker shared.
  */
-static inline void __attribute__((unused))
-lace_make_all_shared(void)
+static inline void lace_make_all_shared(void)
 {
     LaceWorker* w = lace_get_worker();
     if (w->split != w->head) {
@@ -607,7 +691,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 static inline __attribute__((unused))
 void NAME##_SPAWN(LaceWorker* _lace_worker$FUN_ARGS)
 {
-    PR_COUNTTASK(w);
+    PR_COUNTTASK(_lace_worker);
 
     Task *lace_head = _lace_worker->head;
     if (lace_head == _lace_worker->end) lace_abort_stack_overflow();

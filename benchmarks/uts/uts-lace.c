@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
     uts_printParams();
     uts_initRoot(&root, type);
 
-    lace_start(_lace_workers, _lace_dqsize);
+    lace_start(_lace_workers, _lace_dqsize, 0);
 
     printf("Running uts with %u worker(s)...\n", lace_worker_count());
 

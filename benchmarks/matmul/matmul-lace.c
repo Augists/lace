@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     zero(C1, n);
     zero(C2, n);
 
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     printf("Running matmul n=%d with %u worker(s)...\n", n, lace_worker_count());
 

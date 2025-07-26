@@ -401,7 +401,7 @@ int main(int argc, char **argv)
         n = atoi(argv[optind]);
     }
         
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     printf("Running lu n=%d with %u worker(s)...\n", n, lace_worker_count());
 

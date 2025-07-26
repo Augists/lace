@@ -37,7 +37,7 @@ runtests(int n_workers)
     for (int i=0; i<10; i++) sfib(35);
 
     // Initialize the Lace framework for <n_workers> workers.
-    lace_start(n_workers, 0);
+    lace_start(n_workers, 0, 0);
 
     double time = 0;
 

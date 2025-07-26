@@ -1,19 +1,21 @@
-#include "lace.h"
 #include <stdio.h> // for printf, fprintf
 #include <stdlib.h> // for exit, atoi
 #include <time.h>
 #include <getopt.h>
 
+#include <lace.h>
+
 TASK_1(int, pfib, int, n)
 
-int pfib(LaceWorker *worker, int n)
+int pfib(LaceWorker* worker, int n)
 {
     if( n < 2 ) {
         return n;
     } else {
+        int m,k;
         pfib_SPAWN(worker, n-1);
-        int k = pfib(worker, n-2);
-        int m = pfib_SYNC(worker);
+        k = pfib(worker, n-2);
+        m = pfib_SYNC(worker);
         return m+k;
     }
 }
@@ -27,7 +29,7 @@ double wctime()
 
 void usage(char *s)
 {
-    fprintf(stderr, "Usage: %s [-w <workers>] [-q <dqsize>] <n>\n", s);
+    fprintf(stderr, "%s -w <workers> [-q dqsize] <n>\n", s);
 }
 
 int main(int argc, char **argv)

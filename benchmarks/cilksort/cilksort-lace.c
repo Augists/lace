@@ -484,7 +484,7 @@ int main(int argc, char *argv[])
         fclose(f);
     }
 
-    lace_start(workers, dqsize);
+    lace_start(workers, dqsize, 0);
 
     printf("Running cilksort n=%ld with %u workers...\n", size, lace_worker_count());
 

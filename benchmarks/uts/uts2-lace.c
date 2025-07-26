@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
   uts_printParams();
   uts_initRoot(&root, type);
   
-  lace_start(_lace_workers, _lace_dqsize);
+  lace_start(_lace_workers, _lace_dqsize, 0);
 
   printf("Initialized Lace with %d workers, dqsize=%d\n", _lace_workers, _lace_dqsize);
 

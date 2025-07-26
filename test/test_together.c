@@ -62,7 +62,7 @@ void
 runtests(int n_workers)
 {
     // Initialize the Lace framework for <n_workers> workers.
-    lace_start(n_workers, 0);
+    lace_start(n_workers, 0, 0);
 
     printf("Newframe:\n");
     test_something_NEWFRAME();
@@ -84,7 +84,7 @@ runtests(int n_workers)
     printf("Recursive test\n");
     _main_RUN(NULL);
 
-    // The lace_startup command also exits Lace after _main is completed.
+    // Finally, stop the workers again.
     lace_stop();
 }
 

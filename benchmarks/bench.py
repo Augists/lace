@@ -156,7 +156,7 @@ def compute_stats(data, B=1000, seed=None):
         sem = stdev / math.sqrt(B)
         rel_sem = sem / mean_median
 
-    return n, mean_median, rel_sem
+    return n, statistics.median(data), rel_sem
 
 
 def report_results(results):
