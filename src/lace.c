@@ -348,7 +348,7 @@ lace_init_worker(unsigned int worker)
     w->split = w->dq;
     w->allstolen = 0;
     w->worker = worker;
-    w->rng = (((uint64_t)rand())<<32 | rand());
+    w->rng = ((uint64_t)rand() << 32 | rand()) | 1ULL;
 
 #if LACE_COUNT_EVENTS
     // Initialize counters
@@ -411,23 +411,6 @@ lace_resume()
             if (atomic_compare_exchange_weak(&lace_awaken_count, &state, next) == 1) break;
         }
     }
-}
-
-/**
- * Simple random number generated (like rand) using the given seed.
- * (Used for thread-specific (scalable) random number generation.
- */
-static inline uint32_t
-rng(uint32_t *seed, int max)
-{
-    uint32_t next = *seed;
-
-    next *= 1103515245;
-    next += 12345;
-
-    *seed = next;
-
-    return next % max;
 }
 
 /**
@@ -569,7 +552,7 @@ void lace_steal_random(LaceWorker *__lace_worker)
     if (__builtin_expect(atomic_load_explicit(&external_task, memory_order_acquire) != 0, 0)) {
         lace_steal_external(__lace_worker);
     } else if (n_workers > 1) {
-        Worker *victim = workers[(__lace_worker->worker + 1 + rng(&__lace_worker->seed, n_workers-1)) % n_workers];
+        Worker *victim = workers[(__lace_worker->worker + 1 + (lace_rng(__lace_worker) % (n_workers-1))) % n_workers];
 
         PR_COUNTSTEALS(__lace_worker, CTR_steal_tries);
         Worker *res = lace_steal(__lace_worker, victim);
@@ -600,7 +583,6 @@ void lace_steal_loop(LaceWorker* lace_worker, atomic_int* quit)
     lace_worker->time = lace_gethrtime();
 #endif
 
-    uint32_t seed = worker_id;
     unsigned int n = n_workers;
     int i=0;
 
@@ -614,8 +596,8 @@ void lace_steal_loop(LaceWorker* lace_worker, atomic_int* quit)
                 if (victim >= workers + n) victim = workers;
                 if (victim == self) victim++;
             } else {
-                i = rng(&seed, 40); // compute random i 0..40
-                victim = workers + (rng(&seed, n-1) + worker_id + 1) % n;
+                i = lace_rng(lace_worker) % 40;
+                victim = workers + ((lace_rng(lace_worker) % (n-1)) + worker_id + 1) % n;
             }
 
             PR_COUNTSTEALS(lace_worker, CTR_steal_tries);

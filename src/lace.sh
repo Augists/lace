@@ -316,8 +316,7 @@ typedef struct _LaceWorker {
     Task *end;                  // dq+dq_size
     Task *dq;                   // my queue
     Worker *_public;            // pointer to public Worker struct
-    uint64_t rng;               // my random seed (for lace_rng)
-    uint32_t seed;              // my random seed (for lace_steal_random)
+    __uint128_t rng;            // my random seed (for lace_rng)
     uint16_t worker;            // what is my worker id?
     uint8_t allstolen;          // my allstolen
 
@@ -421,7 +420,8 @@ static inline int lace_is_completed_task(Task* t)
  */
 static inline uint64_t lace_rng(LaceWorker *worker)
 {
-    return (worker->rng = 2862933555777941757ULL * worker->rng + 3037000493ULL);
+    worker->rng *= 0xda942042e4dd58b5;
+    return worker->rng >> 64;
 }
 
 /* Some flags that influence Lace behavior */
