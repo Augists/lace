@@ -48,7 +48,7 @@ extern "C" {
 // Lace version
 #define LACE_VERSION_MAJOR 2
 #define LACE_VERSION_MINOR 0
-#define LACE_VERSION_PATCH 0
+#define LACE_VERSION_PATCH 1
 
 // Platform configuration
 #include <lace_config.h>
@@ -622,7 +622,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker)                                           \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker)                                          \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -659,6 +659,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker)                                     
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -756,7 +757,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker)                                           \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker)                                          \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -793,6 +794,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker)                                     
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -893,7 +895,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                            \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                           \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -930,6 +932,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                      
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1027,7 +1030,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                            \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                           \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1064,6 +1067,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1)                      
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1164,7 +1168,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)             \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)            \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1201,6 +1205,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)       
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1298,7 +1303,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)             \
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)            \
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1335,6 +1340,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2)       
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1435,7 +1441,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1472,6 +1478,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1569,7 +1576,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1606,6 +1613,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1706,7 +1714,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1743,6 +1751,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1840,7 +1849,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -1877,6 +1886,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -1977,7 +1987,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -2014,6 +2024,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -2111,7 +2122,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -2148,6 +2159,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -2248,7 +2260,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5, ATYPE_6 arg_6)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5, ATYPE_6 arg_6)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -2285,6 +2297,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
@@ -2382,7 +2395,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \
-void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5, ATYPE_6 arg_6)\
+Task* NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_3 arg_3, ATYPE_4 arg_4, ATYPE_5 arg_5, ATYPE_6 arg_6)\
 {                                                                                     \
     PR_COUNTTASK(_lace_worker);                                                       \
                                                                                       \
@@ -2419,6 +2432,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker, ATYPE_1 arg_1, ATYPE_2 arg_2, ATYPE_
     }                                                                                 \
                                                                                       \
     _lace_worker->head = lace_head+1;                                                 \
+    return lace_head;                                                                 \
 }                                                                                     \
                                                                                       \
 static inline __attribute__((unused))                                                 \

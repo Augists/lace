@@ -2,6 +2,12 @@
 
 All notable changes to Lace will be documented in this file.
 
+## [2.0.1] - 2025-07-31
+
+### Added
+
+- the `_SPAWN` functions now return a pointer to the created task.
+
 ## [2.0.0] - 2025-07-28
 
 This is a major rewrite of the Lace API. The goal is to make the framework more

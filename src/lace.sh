@@ -55,7 +55,7 @@ extern "C" {
 // Lace version
 #define LACE_VERSION_MAJOR 2
 #define LACE_VERSION_MINOR 0
-#define LACE_VERSION_PATCH 0
+#define LACE_VERSION_PATCH 1
 
 // Platform configuration
 #include <lace_config.h>
@@ -689,7 +689,7 @@ static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unu
 }
 
 static inline __attribute__((unused))
-void NAME##_SPAWN(LaceWorker* _lace_worker$FUN_ARGS)
+Task* NAME##_SPAWN(LaceWorker* _lace_worker$FUN_ARGS)
 {
     PR_COUNTTASK(_lace_worker);
 
@@ -726,6 +726,7 @@ void NAME##_SPAWN(LaceWorker* _lace_worker$FUN_ARGS)
     }
 
     _lace_worker->head = lace_head+1;
+    return lace_head;
 }
 
 static inline __attribute__((unused))
