@@ -8,25 +8,25 @@
 Lace is a C framework for fine-grained fork-join parallelism on multi-core computers.
 
 ```c
-TASK_1(int, fibonacci, int, n)   // macro to create Lace functions (can be in header file)
+TASK_1(int, fibonacci, int, n)  // macro to create Lace functions (can be in header file)
 
-int fibonacci(LaceWorker* lw, int n) {
+int fibonacci_CALL(LaceWorker* lw, int n) {
     if(n < 2) return n;
-    fibonacci_SPAWN(lw, n-1);    // SPAWN a task (fork)
-    int a = fibonacci(lw, n-2);  // run another task in parallel
-    int b = fibonacci_SYNC(lw);  // SYNC the spawned task (join)
+    fibonacci_SPAWN(lw, n-1);         // SPAWN a task (fork)
+    int a = fibonacci_CALL(lw, n-2);  // run another task in parallel
+    int b = fibonacci_SYNC(lw);       // SYNC the spawned task (join)
     return a + b;
 }
 
 int main(int argc, char** argv)
 {
-    int n_workers = 4;           // create 4 workers
-                                 // use 0 to automatically use all available cores
-    int dqsize = 0;              // use default task deque size
-    int stacksize = 0;           // use default program stack size
+    int n_workers = 4;  // create 4 workers
+                        // use 0 to automatically use all available cores
+    int dqsize = 0;     // use default task deque size
+    int stacksize = 0;  // use default program stack size
 
     lace_start(n_workers, dqsize, stacksize);
-    int result = fibonacci_RUN(42);
+    int result = fibonacci(42);
     printf("fibonacci(42) = %d\n", result);
     lace_stop();
 }

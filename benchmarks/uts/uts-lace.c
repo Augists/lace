@@ -68,7 +68,7 @@ typedef struct {
 } Result;
 
 TASK_2(Result, parTreeSearch, int, depth, Node *, parent)
-Result parTreeSearch(LaceWorker* worker, int depth, Node *parent) {
+Result parTreeSearch_CALL(LaceWorker* worker, int depth, Node *parent) {
     int numChildren, childType;
     counter_t parentHeight = parent->height;
 
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     printf("Running uts with %u worker(s)...\n", lace_worker_count());
 
     t1 = uts_wctime();
-    Result r = parTreeSearch_RUN(0, &root);
+    Result r = parTreeSearch(0, &root);
     t2 = uts_wctime();
 
     maxTreeDepth = r.maxdepth;

@@ -10,7 +10,7 @@
  */
 TASK_4(long, nqueens, const int*, a, int, n, int, d, int, i)
 
-long nqueens(LaceWorker* worker, const int* a, int n, int d, int i)
+long nqueens_CALL(LaceWorker* worker, const int* a, int n, int d, int i)
 {
     // copy queens from a to new array aa and check if ok
     int aa[d + 1];
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
     printf("Running nqueens n=%d with %u workers...\n", n, lace_worker_count());
 
     double t1 = wctime();
-    long res = nqueens_RUN(NULL, n, -1, 0);
+    long res = nqueens(NULL, n, -1, 0);
     double t2 = wctime();
 
     printf("Result: nqueens(%d) = %ld\n", n, res);

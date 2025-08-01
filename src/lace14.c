@@ -570,7 +570,7 @@ void lace_steal_random(LaceWorker *__lace_worker)
  */
 VOID_TASK_1(lace_steal_loop, atomic_int*, quit)
 
-void lace_steal_loop(LaceWorker* lace_worker, atomic_int* quit)
+void lace_steal_loop_CALL(LaceWorker* lace_worker, atomic_int* quit)
 {
     // Determine who I am
     const int worker_id = lace_worker->worker;
@@ -646,7 +646,7 @@ lace_worker_thread(void* arg)
     workers_running += 1;
 
     // Run the steal loop
-    lace_steal_loop(lace_get_worker(), &lace_quits);
+    lace_steal_loop_CALL(lace_get_worker(), &lace_quits);
 
     // Time worker exit event
     lace_time_event(lace_get_worker(), 9);
@@ -1126,7 +1126,7 @@ lace_yield(LaceWorker *worker)
 VOID_TASK_2(lace_together_root, Task*, t, atomic_int*, finished)
 
 void
-lace_together_root(LaceWorker* lace_worker, Task* t, atomic_int* finished)
+lace_together_root_CALL(LaceWorker* lace_worker, Task* t, atomic_int* finished)
 {
     // run the root task
     t->f(lace_worker, t);
@@ -1141,7 +1141,7 @@ lace_together_root(LaceWorker* lace_worker, Task* t, atomic_int* finished)
 VOID_TASK_1(lace_wrap_together, Task*, task)
 
 void
-lace_wrap_together(LaceWorker* worker, Task* task)
+lace_wrap_together_CALL(LaceWorker* worker, Task* task)
 {
     /* synchronization integer (decrease by 1 when done...) */
     atomic_int done = n_workers;
@@ -1171,8 +1171,9 @@ lace_wrap_together(LaceWorker* worker, Task* task)
 }
 
 VOID_TASK_2(lace_newframe_root, Task*, t, atomic_int*, done)
+
 void
-lace_newframe_root(LaceWorker *lace_worker, Task* t, atomic_int *done)
+lace_newframe_root_CALL(LaceWorker *lace_worker, Task* t, atomic_int *done)
 {
     t->f(lace_worker, t);
     *done = 1;
@@ -1181,7 +1182,7 @@ lace_newframe_root(LaceWorker *lace_worker, Task* t, atomic_int *done)
 VOID_TASK_1(lace_wrap_newframe, Task*, task)
 
 void
-lace_wrap_newframe(LaceWorker* worker, Task* task)
+lace_wrap_newframe_CALL(LaceWorker* worker, Task* task)
 {
     /* synchronization integer (set to 1 when done...) */
     atomic_int done = 0;
@@ -1218,13 +1219,13 @@ lace_wrap_newframe(LaceWorker* worker, Task* task)
 }
 
 void
-lace_run_together(Task *t)
+lace_run_together_CALL(Task *t)
 {
     LaceWorker* self = lace_get_worker();
     if (self != 0) {
-        lace_wrap_together(self, t);
+        lace_wrap_together_CALL(self, t);
     } else {
-        lace_wrap_together_RUN(t);
+        lace_wrap_together(t);
     }
 }
 
@@ -1233,9 +1234,9 @@ lace_run_newframe(Task *t)
 {
     LaceWorker* self = lace_get_worker();
     if (self != 0) {
-        lace_wrap_newframe(self, t);
+        lace_wrap_newframe_CALL(self, t);
     } else {
-        lace_wrap_newframe_RUN(t);
+        lace_wrap_newframe(t);
     }
 }
 

@@ -361,13 +361,11 @@ static inline Task *lace_get_head(void)
 
 /**
  * Helper function to call from outside Lace threads.
- * This helper function is used by the _RUN methods for the RUN() macro.
  */
 void lace_run_task(Task *task);
 
 /**
  * Helper function to call from outside Lace threads.
- * This helper function is used by the _RUN methods for the RUN() macro.
  */
 void lace_run_task_exclusive(Task *task);
 
@@ -681,11 +679,11 @@ typedef struct _TD_##NAME {
 
 static_assert(sizeof(TD_##NAME) <= sizeof(Task), \"TD_\" #NAME \" is too large, set LACE_TASKSIZE to a higher value!\");
 
-$RTYPE NAME(LaceWorker*$DECL_ARGS);
+$RTYPE NAME##_CALL(LaceWorker*$DECL_ARGS);
 
 static void NAME##_WRAP(LaceWorker* lace_worker, TD_##NAME *t __attribute__((unused)))
 {
-    $SAVE_RVAL NAME(lace_worker$TASK_GET_FROM_t);
+    $SAVE_RVAL NAME##_CALL(lace_worker$TASK_GET_FROM_t);
 }
 
 static inline __attribute__((unused))
@@ -753,19 +751,20 @@ void NAME##_TOGETHER($RUN_ARGS)
 }
 
 static inline __attribute__((unused))
-$RTYPE NAME##_RUN($RUN_ARGS)
+$RTYPE NAME($RUN_ARGS)
 {
     LaceWorker *worker = lace_get_worker();
     if (worker != NULL) {
-        ${SS_RETURN}NAME(worker$CALL_ARGS);
+        ${SS_RETURN}NAME##_CALL(worker$CALL_ARGS);
+    } else {
+        Task _t;
+        TD_##NAME *t = (TD_##NAME *)&_t;
+        t->f = &NAME##_WRAP;
+        atomic_store_explicit(&t->thief, THIEF_TASK, memory_order_relaxed);
+        $TASK_INIT
+        lace_run_task(&_t);
+        return $RETURN_RES;
     }
-    Task _t;
-    TD_##NAME *t = (TD_##NAME *)&_t;
-    t->f = &NAME##_WRAP;
-    atomic_store_explicit(&t->thief, THIEF_TASK, memory_order_relaxed);
-    $TASK_INIT
-    lace_run_task(&_t);
-    return $RETURN_RES;
 }
 
 static inline __attribute__((unused))
@@ -792,7 +791,7 @@ $RTYPE NAME##_SYNC(LaceWorker* _lace_worker)
     if (__builtin_expect(0 == _lace_worker->_public->movesplit, 1)) {
         if (__builtin_expect(_lace_worker->split <= head, 1)) {
             atomic_store_explicit(&t->thief, THIEF_EMPTY, memory_order_relaxed);
-            ${SS_RETURN}NAME(_lace_worker$TASK_GET_FROM_t);
+            ${SS_RETURN}NAME##_CALL(_lace_worker$TASK_GET_FROM_t);
             ${SS_RETURN2}
         }
     }
@@ -801,7 +800,7 @@ $RTYPE NAME##_SYNC(LaceWorker* _lace_worker)
         ${SS_RETURN}$RETURN_RES;
     } else {
         atomic_store_explicit(&t->thief, THIEF_EMPTY, memory_order_relaxed);
-        ${SS_RETURN}NAME(_lace_worker$TASK_GET_FROM_t);
+        ${SS_RETURN}NAME##_CALL(_lace_worker$TASK_GET_FROM_t);
     }
 }
 

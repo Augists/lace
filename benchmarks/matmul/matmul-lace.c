@@ -73,7 +73,7 @@ void iter_matmul(REAL *A, REAL *B, REAL *C, int n)
  * C \in M(m, p)
  */
 VOID_TASK_8(rec_matmul, REAL*, A, REAL*, B, REAL*, C, int, m, int, n, int, p, int, ld, int, add)
-void rec_matmul(LaceWorker* worker, REAL* A, REAL* B, REAL* C, int m, int n, int p, int ld, int add)
+void rec_matmul_CALL(LaceWorker* worker, REAL* A, REAL* B, REAL* C, int m, int n, int p, int ld, int add)
 {
     if ((m + n + p) <= 64) {
         int i, j, k;
@@ -98,16 +98,16 @@ void rec_matmul(LaceWorker* worker, REAL* A, REAL* B, REAL* C, int m, int n, int
     } else if (m >= n && n >= p) {
         int m1 = m >> 1;
         rec_matmul_SPAWN(worker, A, B, C, m1, n, p, ld, add);
-        rec_matmul(worker, A + m1 * ld, B, C + m1 * ld, m - m1, n, p, ld, add);
+        rec_matmul_CALL(worker, A + m1 * ld, B, C + m1 * ld, m - m1, n, p, ld, add);
         rec_matmul_SYNC(worker);
     } else if (n >= m && n >= p) {
         int n1 = n >> 1;
-        rec_matmul(worker, A, B, C, m, n1, p, ld, add);
-        rec_matmul(worker, A + n1, B + n1 * ld, C, m, n - n1, p, ld, 1);
+        rec_matmul_CALL(worker, A, B, C, m, n1, p, ld, add);
+        rec_matmul_CALL(worker, A + n1, B + n1 * ld, C, m, n - n1, p, ld, 1);
     } else {
         int p1 = p >> 1;
         rec_matmul_SPAWN(worker, A, B, C, m, n, p1, ld, add);
-        rec_matmul(worker, A, B + p1, C + p1, m, n, p - p1, ld, add);
+        rec_matmul_CALL(worker, A, B + p1, C + p1, m, n, p - p1, ld, add);
         rec_matmul_SYNC(worker);
     }
 }
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     printf("Running matmul n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     double t1 = wctime();
-    rec_matmul_RUN(A, B, C2, n, n, n, n, 0); 
+    rec_matmul(A, B, C2, n, n, n, n, 0); 
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);

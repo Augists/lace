@@ -419,7 +419,7 @@ VOID_TASK_7(OptimizedStrassenMultiply, REAL *, C, REAL *, A, REAL *, B,
         unsigned, RowWidthB
         )
 
-void OptimizedStrassenMultiply(LaceWorker* worker, REAL * C, REAL * A, REAL * B, unsigned MatrixSize,
+void OptimizedStrassenMultiply_CALL(LaceWorker* worker, REAL * C, REAL * A, REAL * B, unsigned MatrixSize,
         unsigned RowWidthC, unsigned RowWidthA, unsigned RowWidthB)
 {
     unsigned QuadrantSize = MatrixSize >> 1; /* MatixSize / 2 */
@@ -765,7 +765,7 @@ int main(int argc, char *argv[])
     printf("Running strassen n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     double t1=wctime();
-    OptimizedStrassenMultiply_RUN(C2, A, B, n, n, n, n);
+    OptimizedStrassenMultiply(C2, A, B, n, n, n, n);
     double t2=wctime();
 
     if (verify) {

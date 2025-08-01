@@ -26,7 +26,7 @@ This defines a task with the given name, return type, parameter types and
 parameter names. The macro defines a number of functions:
 - `Task* <name>_SPAWN(LaceWorker* lw, <type_1> <name_1>, ...)` to spawn a new
   task which can then be stolen by other workers.
-- `<return_type> <name>_RUN(<type_1> <name_1>, ...)` to create a task and run it
+- `<return_type> <name>(<type_1> <name_1>, ...)` to create a task and run it
   on a Lace worker.
 - `<return_type> <name>_SYNC(LaceWorker* lw)` to get the result of the last
   spawned task (LIFO order). This either waits for the result of the stolen task
@@ -49,8 +49,8 @@ For defining tasks with no return type (`void`), use these macros:
 - etc.
 
 **Important**: the actual task must be a function with a signature like:
-- `<return_type> <name>(LaceWorker*, <type_1>, <type_2>, ...)`
-- `void <name>(LaceWorker*, <type_1>, <type_2>, ...)`
+- `<return_type> <name>_CALL(LaceWorker*, <type_1>, <type_2>, ...)`
+- `void <name>_CALL(LaceWorker*, <type_1>, <type_2>, ...)`
 
 The tasks are given the `LaceWorker*` pointer that corresponds to the worker
 that the task is currently running in. This pointer and its contents must not be
@@ -62,25 +62,25 @@ changed and the pointer is necessary for a number of function calls such as
 Typically a recursive function with two 'child tasks' is parallelized as follows:
 
 ```c
-TASK_1(int, fibonacci, int, n)   // macro to create Lace functions (can be in header file)
+TASK_1(int, fibonacci, int, n)  // macro to create Lace functions (can be in header file)
 
-int fibonacci(LaceWorker* lw, int n) {
+int fibonacci_CALL(LaceWorker* lw, int n) {
     if(n < 2) return n;
-    fibonacci_SPAWN(lw, n-1);    // SPAWN a task (fork)
-    int a = fibonacci(lw, n-2);  // run another task in parallel
-    int b = fibonacci_SYNC(lw);  // SYNC the spawned task (join)
+    fibonacci_SPAWN(lw, n-1);         // SPAWN a task (fork)
+    int a = fibonacci_CALL(lw, n-2);  // run another task in parallel
+    int b = fibonacci_SYNC(lw);       // SYNC the spawned task (join)
     return a + b;
 }
 
 int main(int argc, char** argv)
 {
-    int n_workers = 4;           // create 4 workers
-                                 // use 0 to automatically use all available cores
-    int dqsize = 0;              // use default task deque size
-    int stacksize = 0;           // use default program stack size
+    int n_workers = 4;  // create 4 workers
+                        // use 0 to automatically use all available cores
+    int dqsize = 0;     // use default task deque size
+    int stacksize = 0;  // use default program stack size
 
     lace_start(n_workers, dqsize, stacksize);
-    int result = fibonacci_RUN(42);
+    int result = fibonacci(42);
     printf("fibonacci(42) = %d\n", result);
     lace_stop();
 }
@@ -116,7 +116,7 @@ suspending and resuming them. These methods must be called from outside the Lace
 framework, i.e., not from a Lace worker thread.
 
 A typical Lace program starts with `lace_start` and ends with `lace_stop`, and
-uses `<task>_RUN(...)` to let the Lace worker threads execute tasks.
+uses `<task>(...)` to let the Lace worker threads execute tasks.
 
 When Lace is started, worker threads are created and immediately start
 busy-waiting for work.  Each thread allocates its own task queue of the

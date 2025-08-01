@@ -16,7 +16,7 @@ static double f(double x)
 TASK_5(double, integrate, double, x1, double, y1, double, x2, double, y2, double, area)
 
 double
-integrate(LaceWorker* worker, double x1, double y1, double x2, double y2, double area)
+integrate_CALL(LaceWorker* worker, double x1, double y1, double x2, double y2, double area)
 {
     double half = (x2 - x1) / 2;
     double x0 = x1 + half;
@@ -31,7 +31,7 @@ integrate(LaceWorker* worker, double x1, double y1, double x2, double y2, double
     }
 
     integrate_SPAWN(worker, x1, y1, x0, y0, area_x1x0);
-    area_x0x2 = integrate(worker, x0, y0, x2, y2, area_x0x2);
+    area_x0x2 = integrate_CALL(worker, x0, y0, x2, y2, area_x0x2);
     area_x1x0 = integrate_SYNC(worker);
 
     return area_x1x0 + area_x0x2;
@@ -86,7 +86,7 @@ int main( int argc, char **argv )
     printf("Running integrate n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     double t1 = wctime();
-    double m = integrate_RUN(0, f(0), n, f(n), 0);
+    double m = integrate(0, f(0), n, f(n), 0);
     double t2 = wctime();
 
     printf("integrate(%d) = %f\n", n, m);

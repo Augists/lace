@@ -6,7 +6,7 @@
 VOID_TASK_1(test_together, int, depth);
 VOID_TASK_1(test_newframe, int, depth);
 
-void test_together(LaceWorker* worker, int depth)
+void test_together_CALL(LaceWorker* worker, int depth)
 {
     if (depth != 0) {
         test_together_SPAWN(worker, depth-1);
@@ -21,7 +21,7 @@ void test_together(LaceWorker* worker, int depth)
     }
 }
 
-void test_newframe(LaceWorker* worker, int depth)
+void test_newframe_CALL(LaceWorker* worker, int depth)
 {
     if (depth != 0) {
         test_newframe_SPAWN(worker, depth-1);
@@ -37,13 +37,13 @@ void test_newframe(LaceWorker* worker, int depth)
 }
 
 VOID_TASK_0(test_something)
-void test_something(LaceWorker* worker)
+void test_something_CALL(LaceWorker* worker)
 {
     printf("running from worker %d\n", lace_worker_id());
 }
 
 VOID_TASK_1(_main, void*, arg)
-void _main(LaceWorker* worker, void* arg)
+void _main_CALL(LaceWorker* worker, void* arg)
 {
     fprintf(stdout, "Testing TOGETHER and NEWFRAME with %u workers...\n", lace_worker_count());
 
@@ -52,7 +52,7 @@ void _main(LaceWorker* worker, void* arg)
         test_together_TOGETHER(5);
     }
 
-    test_something_RUN();
+    test_something();
 
     // We didn't use arg
     (void)arg;
@@ -77,12 +77,12 @@ runtests(int n_workers)
     printf("Running (10x):\n");
     for (int i=0; i<5; i++) {
         printf("%d: ", i);
-        test_something_RUN();
+        test_something();
     }
 
     // Spawn and start all worker pthreads; suspends current thread until done.
     printf("Recursive test\n");
-    _main_RUN(NULL);
+    _main(NULL);
 
     // Finally, stop the workers again.
     lace_stop();

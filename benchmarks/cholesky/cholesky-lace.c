@@ -351,7 +351,7 @@ static Matrix set_matrix(int depth, Matrix a, int r, int c, Real value)
  */
 TASK_5(Matrix, mul_and_subT, int, depth, int, lower, Matrix, a, Matrix, b, Matrix, r)
 
-Matrix mul_and_subT(LaceWorker* worker, int depth, int lower, Matrix a, Matrix b, Matrix r)
+Matrix mul_and_subT_CALL(LaceWorker* worker, int depth, int lower, Matrix a, Matrix b, Matrix r)
 {
     if (depth == BLOCK_DEPTH) {
         LeafNode *A = (LeafNode *) a;
@@ -449,7 +449,7 @@ Matrix mul_and_subT(LaceWorker* worker, int depth, int lower, Matrix a, Matrix b
  */
 TASK_3(Matrix, backsub, int, depth, Matrix, a, Matrix, l)
 
-Matrix backsub(LaceWorker* worker, int depth, Matrix a, Matrix l)
+Matrix backsub_CALL(LaceWorker* worker, int depth, Matrix a, Matrix l)
 {
     if (depth == BLOCK_DEPTH) {
         LeafNode *A = (LeafNode *) a;
@@ -499,7 +499,7 @@ Matrix backsub(LaceWorker* worker, int depth, Matrix a, Matrix l)
  */
 TASK_2(Matrix, cholesky, int, depth, Matrix, a)
 
-Matrix cholesky(LaceWorker* worker, int depth, Matrix a)
+Matrix cholesky_CALL(LaceWorker* worker, int depth, Matrix a)
 {
     if (depth == BLOCK_DEPTH) {
         LeafNode *A = (LeafNode *) a;
@@ -515,13 +515,13 @@ Matrix cholesky(LaceWorker* worker, int depth, Matrix a)
 
         if (!a10) {
             cholesky_SPAWN(worker, depth, a00);
-            a11 = cholesky(worker, depth, a11);
+            a11 = cholesky_CALL(worker, depth, a11);
             a00 = cholesky_SYNC(worker);
         } else {
-            a00 = cholesky(worker, depth, a00);
-            a10 = backsub(worker, depth, a10, a00);
-            a11 = mul_and_subT(worker, depth, 1, a10, a10, a11);
-            a11 = cholesky(worker, depth, a11);
+            a00 = cholesky_CALL(worker, depth, a00);
+            a10 = backsub_CALL(worker, depth, a10, a00);
+            a11 = mul_and_subT_CALL(worker, depth, 1, a10, a10, a11);
+            a11 = cholesky_CALL(worker, depth, a11);
         }
         a->child[_00] = a00;
         a->child[_10] = a10;
@@ -619,7 +619,7 @@ int main(int argc, char **argv)
 
     init();
     double t1 = wctime();
-    R = cholesky_RUN(depth, R);
+    R = cholesky(depth, R);
     double t2 = wctime();
     printf("Time: %f\n", t2-t1);
 

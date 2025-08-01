@@ -2,6 +2,18 @@
 
 All notable changes to Lace will be documented in this file.
 
+## [2.0.2] - 2025-08-01
+
+Technically this is an API-breaking change, but since we have practically few
+users and this is rather quick after the release of 2.0.0 anyway, I'll mark it
+as a patch update.
+
+I realized when working on Sylvan that it is much better to use something like
+`pfib_CALL` for calling a task from inside Lace (which is typically developer-
+facing) and have `pfib(..)` instead of `pfib_RUN(..)` to run a task from a
+non-Lace thread. This way, an API can look cleaner and a library user does not
+need to concern themselves with adding `_RUN` to every call.
+
 ## [2.0.1] - 2025-07-31
 
 ### Added

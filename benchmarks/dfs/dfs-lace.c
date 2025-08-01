@@ -23,7 +23,7 @@ int __attribute__((noinline)) loop()
 
 TASK_1(int, tree, int, d)
 
-int tree(LaceWorker* worker, int d)
+int tree_CALL(LaceWorker* worker, int d)
 {
     if( d>0 ) {
         int i;
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 
     double t1 = wctime();
     int i;
-    for(i=0; i<m; i++) tree_RUN(d);
+    for(i=0; i<m; i++) tree(d);
     double t2 = wctime();
 
     printf("Time: %f\n", t2-t1);

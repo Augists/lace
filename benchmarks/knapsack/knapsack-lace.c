@@ -98,7 +98,7 @@ static int compare(struct item *a, struct item *b)
  */
 TASK_4(int, knapsack, struct item *, e, int, c, int, n, int, v)
 
-int knapsack(LaceWorker* worker, struct item *e, int c, int n, int v)
+int knapsack_CALL(LaceWorker* worker, struct item *e, int c, int n, int v)
 {
     int with, without, best;
 
@@ -128,13 +128,13 @@ int knapsack(LaceWorker* worker, struct item *e, int c, int n, int v)
     /* compute the best solution with the current item in the knapsack */
     knapsack_SPAWN(worker, e + 1, c - e->weight, n - 1, v + e->value);
     /* compute the best solution without the current item in the knapsack */
-    without = knapsack(worker, e + 1, c, n - 1, v);
+    without = knapsack_CALL(worker, e + 1, c, n - 1, v);
     with = knapsack_SYNC(worker);
 #else
     /* compute the best solution without the current item in the knapsack */
     knapsack_SPAWN(worker, e + 1, c, n - 1, v);
     /* compute the best solution with the current item in the knapsack */
-    with = knapsack(worker, e + 1, c - e->weight, n - 1, v + e->value);
+    with = knapsack_CALL(worker, e + 1, c - e->weight, n - 1, v + e->value);
     without = knapsack_SYNC(worker);
 #endif
 
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
     prep();
 
     double t1 = wctime();
-    sol = knapsack_RUN(items, capacity, n, 0);
+    sol = knapsack(items, capacity, n, 0);
     double t2 = wctime();
 
     printf("Best value is %d\n", sol);

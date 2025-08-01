@@ -13,12 +13,12 @@ long sfib(int n)
 }
 
 TASK_1(int, pfib, int, n)
-int pfib(LaceWorker* worker, int n)
+int pfib_CALL(LaceWorker* worker, int n)
 {
     if (n<2) return n;
     int m,k;
     pfib_SPAWN(worker, n-1);
-    k = pfib(worker, n-2);
+    k = pfib_CALL(worker, n-2);
     m = pfib_SYNC(worker);
     return m+k;
 }
@@ -42,7 +42,7 @@ runtests(int n_workers)
     double time = 0;
 
     for (int i=0; i<10; i++) {
-        pfib_RUN(35);
+        pfib(35);
         double before = wctime();
         lace_suspend();
         time += wctime() - before;
@@ -50,7 +50,7 @@ runtests(int n_workers)
         before = wctime();
         lace_resume();
         time += wctime() - before;
-        pfib_RUN(35);
+        pfib(35);
     }
 
     printf("Time suspend + resume avg: %f sec\n", time/10);

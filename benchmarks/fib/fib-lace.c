@@ -6,13 +6,13 @@
 
 TASK_1(int, pfib, int, n)
 
-int pfib(LaceWorker *worker, int n)
+int pfib_CALL(LaceWorker *worker, int n)
 {
     if( n < 2 ) {
         return n;
     } else {
         pfib_SPAWN(worker, n-1);
-        int k = pfib(worker, n-2);
+        int k = pfib_CALL(worker, n-2);
         int m = pfib_SYNC(worker);
         return m+k;
     }
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     printf("Running fibonacci n=%d with %u worker(s)...\n", n, lace_worker_count());
 
     double t1 = wctime();
-    int m = pfib_RUN(n);
+    int m = pfib(n);
     double t2 = wctime();
 
     printf("fib(%d) = %d\n", n, m);
