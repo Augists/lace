@@ -14,6 +14,9 @@ facing) and have `pfib(..)` instead of `pfib_RUN(..)` to run a task from a
 non-Lace thread. This way, an API can look cleaner and a library user does not
 need to concern themselves with adding `_RUN` to every call.
 
+Also removed some of the CamelCase style structs in favor of more traditional
+C-style: `lace_worker`, `lace_task`, etc.
+
 ## [2.0.1] - 2025-07-31
 
 ### Added

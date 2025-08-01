@@ -69,7 +69,7 @@ typedef struct {
 } Result;
 
 TASK_2(Result, parTreeSearch, int, depth, Node *, parent)
-Result parTreeSearch_CALL(LaceWorker* worker, int depth, Node * parent) {
+Result parTreeSearch_CALL(lace_worker* worker, int depth, Node * parent) {
   int numChildren, childType;
   counter_t parentHeight = parent->height;
 

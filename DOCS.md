@@ -24,11 +24,11 @@ To define tasks, Lace offers the following macros:
 
 This defines a task with the given name, return type, parameter types and
 parameter names. The macro defines a number of functions:
-- `Task* <name>_SPAWN(LaceWorker* lw, <type_1> <name_1>, ...)` to spawn a new
+- `lace_task* <name>_SPAWN(lace_worker* lw, <type_1> <name_1>, ...)` to spawn a new
   task which can then be stolen by other workers.
 - `<return_type> <name>(<type_1> <name_1>, ...)` to create a task and run it
   on a Lace worker.
-- `<return_type> <name>_SYNC(LaceWorker* lw)` to get the result of the last
+- `<return_type> <name>_SYNC(lace_worker* lw)` to get the result of the last
   spawned task (LIFO order). This either waits for the result of the stolen task
 or if not stolen, executes the task.
 - `<return_type> <name>_NEWFRAME(...)` is a version of `<name>_RUN` that halts
@@ -49,10 +49,10 @@ For defining tasks with no return type (`void`), use these macros:
 - etc.
 
 **Important**: the actual task must be a function with a signature like:
-- `<return_type> <name>_CALL(LaceWorker*, <type_1>, <type_2>, ...)`
-- `void <name>_CALL(LaceWorker*, <type_1>, <type_2>, ...)`
+- `<return_type> <name>_CALL(lace_worker*, <type_1>, <type_2>, ...)`
+- `void <name>_CALL(lace_worker*, <type_1>, <type_2>, ...)`
 
-The tasks are given the `LaceWorker*` pointer that corresponds to the worker
+The tasks are given the `lace_worker*` pointer that corresponds to the worker
 that the task is currently running in. This pointer and its contents must not be
 changed and the pointer is necessary for a number of function calls such as
 `SPAWN`, `SYNC`, etc.
@@ -64,7 +64,7 @@ Typically a recursive function with two 'child tasks' is parallelized as follows
 ```c
 TASK_1(int, fibonacci, int, n)  // macro to create Lace functions (can be in header file)
 
-int fibonacci_CALL(LaceWorker* lw, int n) {
+int fibonacci_CALL(lace_worker* lw, int n) {
     if(n < 2) return n;
     fibonacci_SPAWN(lw, n-1);         // SPAWN a task (fork)
     int a = fibonacci_CALL(lw, n-2);  // run another task in parallel
@@ -184,7 +184,7 @@ Returns 1 if called from a Lace worker thread, 0 otherwise.
 
 ---
 
-### `LaceWorker* lace_get_worker(void);`  
+### `lace_worker* lace_get_worker(void);`  
 
 Returns a pointer to the current worker’s data (or `NULL` if not a worker).
 
@@ -196,7 +196,7 @@ Returns the worker ID (or `-1` if not in a Lace thread).
 
 ---
 
-### `uint64_t lace_rng(LaceWorker* worker);`
+### `uint64_t lace_rng(lace_worker* worker);`
 
 Thread-local pseudo-random number generator. Each Lace worker has its own thread-local RNG state. The purpose is to avoid contention on a shared RNG.
 
@@ -212,37 +212,37 @@ All workers block until all have reached the barrier.
 
 ---
 
-### `void lace_drop(LaceWorker* worker);`
+### `void lace_drop(lace_worker* worker);`
 
 Instead of `<name>_SYNC`, if `lace_drop` is used this drops the last spawned task. Effectively this means that if the task was already stolen, it is still executed, but if it was not yet stolen, then it is not executed.
 
 ---
 
-### `int lace_is_stolen_task(Task* t);`  
+### `int lace_is_stolen_task(lace_task* t);`  
 
 Returns 1 if the given task is stolen.
 
 ---
 
-### `int lace_is_completed_task(Task* t);`
+### `int lace_is_completed_task(lace_task* t);`
 
 Returns 1 if the given task is completed.
 
 ---
 
-### `<return_type>* lace_task_result(Task* t);`
+### `<return_type>* lace_task_result(lace_task* t);`
 
-Returns a pointer to where the result of a task will be stored after its completion. This is a pointer in the Task* struct of the given task.
+Returns a pointer to where the result of a task will be stored after its completion. This is a pointer in the `lace_task*` struct of the given task.
 
 ---
 
-### `void lace_steal_random(LaceWorker* worker);`
+### `void lace_steal_random(lace_worker* worker);`
 
 Try to steal and execute a task from a random worker.
 
 ---
 
-### `void lace_check_yield(LaceWorker* worker);`
+### `void lace_check_yield(lace_worker* worker);`
 
 Checks if the current task should yield to a `TOGETHER` or `NEWFRAME` interruption, and yields if necessary. Useful in long-running tasks.
 
@@ -254,7 +254,7 @@ Mark all tasks in the current worker’s deque as shared.
 
 ---
 
-### `Task* lace_get_head(void);`
+### `lace_task* lace_get_head(void);`
 
 Returns the current head of the worker's deque.
 

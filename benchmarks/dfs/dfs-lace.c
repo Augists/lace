@@ -23,7 +23,7 @@ int __attribute__((noinline)) loop()
 
 TASK_1(int, tree, int, d)
 
-int tree_CALL(LaceWorker* worker, int d)
+int tree_CALL(lace_worker* worker, int d)
 {
     if( d>0 ) {
         int i;

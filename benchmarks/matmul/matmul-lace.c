@@ -73,7 +73,7 @@ void iter_matmul(REAL *A, REAL *B, REAL *C, int n)
  * C \in M(m, p)
  */
 VOID_TASK_8(rec_matmul, REAL*, A, REAL*, B, REAL*, C, int, m, int, n, int, p, int, ld, int, add)
-void rec_matmul_CALL(LaceWorker* worker, REAL* A, REAL* B, REAL* C, int m, int n, int p, int ld, int add)
+void rec_matmul_CALL(lace_worker* worker, REAL* A, REAL* B, REAL* C, int m, int n, int p, int ld, int add)
 {
     if ((m + n + p) <= 64) {
         int i, j, k;

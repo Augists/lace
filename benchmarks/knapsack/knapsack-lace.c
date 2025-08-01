@@ -98,7 +98,7 @@ static int compare(struct item *a, struct item *b)
  */
 TASK_4(int, knapsack, struct item *, e, int, c, int, n, int, v)
 
-int knapsack_CALL(LaceWorker* worker, struct item *e, int c, int n, int v)
+int knapsack_CALL(lace_worker* worker, struct item *e, int c, int n, int v)
 {
     int with, without, best;
 

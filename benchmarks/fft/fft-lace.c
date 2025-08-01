@@ -38,7 +38,7 @@ static const REAL pi = 3.1415926535897932384626434;
  * and store them into an array.
  */
 VOID_TASK_4(compute_w_coefficients, int, n, int, a, int, b, COMPLEX*, W)
-void compute_w_coefficients_CALL(LaceWorker* worker, int n, int a, int b, COMPLEX* W)
+void compute_w_coefficients_CALL(lace_worker* worker, int n, int a, int b, COMPLEX* W)
 {
     register double twoPiOverN;
     register int k;
@@ -102,7 +102,7 @@ static int factor(int n)
 }
 
 VOID_TASK_6(unshuffle, int, a, int, b, COMPLEX*, in, COMPLEX*, out, int, r, int, m)
-void unshuffle_CALL(LaceWorker* worker, int a, int b, COMPLEX* in, COMPLEX* out, int r, int m)
+void unshuffle_CALL(lace_worker* worker, int a, int b, COMPLEX* in, COMPLEX* out, int r, int m)
 {
     int i, j;
     int r4 = r & (~0x3);
@@ -152,7 +152,7 @@ void unshuffle_CALL(LaceWorker* worker, int a, int b, COMPLEX* in, COMPLEX* out,
  *
  */
 VOID_TASK_6(fft_aux, int, n, COMPLEX*, in, COMPLEX*, out, int*,factors, COMPLEX*, W, int, nW)
-void fft_aux_CALL(LaceWorker* worker, int n, COMPLEX* in, COMPLEX* out, int* factors, COMPLEX* W, int nW)
+void fft_aux_CALL(lace_worker* worker, int n, COMPLEX* in, COMPLEX* out, int* factors, COMPLEX* W, int nW)
 {
     int r, m;
 
@@ -227,7 +227,7 @@ void fft_aux_CALL(LaceWorker* worker, int n, COMPLEX* in, COMPLEX* out, int* fac
  * user interface for fft_aux
  */
 VOID_TASK_3(fft, int, n, COMPLEX*, in, COMPLEX*, out)
-void fft_CALL(LaceWorker* worker, int n, COMPLEX* in, COMPLEX* out)
+void fft_CALL(lace_worker* worker, int n, COMPLEX* in, COMPLEX* out)
 {
     int factors[40];		/* allows FFTs up to at least 3^40 */
     int *p = factors;

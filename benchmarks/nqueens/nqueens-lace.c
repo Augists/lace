@@ -10,7 +10,7 @@
  */
 TASK_4(long, nqueens, const int*, a, int, n, int, d, int, i)
 
-long nqueens_CALL(LaceWorker* worker, const int* a, int n, int d, int i)
+long nqueens_CALL(lace_worker* worker, const int* a, int n, int d, int i)
 {
     // copy queens from a to new array aa and check if ok
     int aa[d + 1];

@@ -6,7 +6,7 @@
 VOID_TASK_1(test_together, int, depth);
 VOID_TASK_1(test_newframe, int, depth);
 
-void test_together_CALL(LaceWorker* worker, int depth)
+void test_together_CALL(lace_worker* worker, int depth)
 {
     if (depth != 0) {
         test_together_SPAWN(worker, depth-1);
@@ -21,7 +21,7 @@ void test_together_CALL(LaceWorker* worker, int depth)
     }
 }
 
-void test_newframe_CALL(LaceWorker* worker, int depth)
+void test_newframe_CALL(lace_worker* worker, int depth)
 {
     if (depth != 0) {
         test_newframe_SPAWN(worker, depth-1);
@@ -37,13 +37,13 @@ void test_newframe_CALL(LaceWorker* worker, int depth)
 }
 
 VOID_TASK_0(test_something)
-void test_something_CALL(LaceWorker* worker)
+void test_something_CALL(lace_worker* worker)
 {
     printf("running from worker %d\n", lace_worker_id());
 }
 
 VOID_TASK_1(_main, void*, arg)
-void _main_CALL(LaceWorker* worker, void* arg)
+void _main_CALL(lace_worker* worker, void* arg)
 {
     fprintf(stdout, "Testing TOGETHER and NEWFRAME with %u workers...\n", lace_worker_count());
 

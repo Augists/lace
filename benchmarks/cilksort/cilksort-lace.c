@@ -300,7 +300,7 @@ ELM *binsplit(ELM val, ELM *low, ELM *high)
 
 VOID_TASK_5(cilkmerge, ELM*, low1, ELM*, high1, ELM*, low2, ELM*, high2, ELM*, lowdest)
 
-void cilkmerge_CALL(LaceWorker* worker, ELM* low1, ELM* high1, ELM* low2, ELM* high2, ELM* lowdest)
+void cilkmerge_CALL(lace_worker* worker, ELM* low1, ELM* high1, ELM* low2, ELM* high2, ELM* lowdest)
 {
     /*
      * Cilkmerge: Merges range [low1, high1] with range [low2, high2] 
@@ -360,7 +360,7 @@ void cilkmerge_CALL(LaceWorker* worker, ELM* low1, ELM* high1, ELM* low2, ELM* h
 
 VOID_TASK_3(cilksort, ELM*, low, ELM*, tmp, long, size)
 
-void cilksort_CALL(LaceWorker* worker, ELM* low, ELM* tmp, long size)
+void cilksort_CALL(lace_worker* worker, ELM* low, ELM* tmp, long size)
 {
     /*
      * divide the input in four parts of the same size (A, B, C, D)

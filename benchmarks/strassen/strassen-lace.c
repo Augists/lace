@@ -419,7 +419,7 @@ VOID_TASK_7(OptimizedStrassenMultiply, REAL *, C, REAL *, A, REAL *, B,
         unsigned, RowWidthB
         )
 
-void OptimizedStrassenMultiply_CALL(LaceWorker* worker, REAL * C, REAL * A, REAL * B, unsigned MatrixSize,
+void OptimizedStrassenMultiply_CALL(lace_worker* worker, REAL * C, REAL * A, REAL * B, unsigned MatrixSize,
         unsigned RowWidthC, unsigned RowWidthA, unsigned RowWidthB)
 {
     unsigned QuadrantSize = MatrixSize >> 1; /* MatixSize / 2 */
