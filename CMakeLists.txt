@@ -75,6 +75,9 @@ target_link_libraries(lace14 PUBLIC pthread)
 
 if(LACE_USE_HWLOC)
     find_package(HWLOC REQUIRED)
+    target_include_directories(lace PUBLIC ${HWLOC_INCLUDE_DIR})
+    target_include_directories(lace14 PUBLIC ${HWLOC_INCLUDE_DIR})
+
     target_link_libraries(lace PUBLIC ${HWLOC_LIBRARIES})
     target_link_libraries(lace14 PUBLIC ${HWLOC_LIBRARIES})
 endif()
@@ -143,6 +146,25 @@ write_basic_package_version_file(
     VERSION ${LACE_VERSION}
     COMPATIBILITY SameMinorVersion
 )
+
+set(_PC_EXTRA_CFLAGS "")
+set(_PC_EXTRA_LIBS "")
+
+if(LACE_USE_HWLOC)
+    list(APPEND _PC_EXTRA_CFLAGS "-I${HWLOC_INCLUDE_DIR}")
+    foreach(lib ${HWLOC_LIBRARIES})
+        get_filename_component(libdir ${lib} DIRECTORY)
+        get_filename_component(libname ${lib} NAME_WE)
+        string(REGEX REPLACE "^lib" "" libname "${libname}")
+        list(APPEND _PC_EXTRA_LIBS "-L${libdir}" "-l${libname}")
+    endforeach()
+endif()
+
+# Join lists into space-separated strings
+string(JOIN " " PC_EXTRA_CFLAGS ${_PC_EXTRA_CFLAGS})
+string(JOIN " " PC_EXTRA_LIBS ${_PC_EXTRA_LIBS})
+
+message(STATUS "Generated EXTRA_LIBS for .pc = ${PC_EXTRA_LIBS}")
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace.pc" @ONLY)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace14.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace14.pc" @ONLY)
