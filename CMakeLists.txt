@@ -70,8 +70,9 @@ target_compile_options(lace14 PRIVATE
         $<$<CONFIG:Debug>:/Od /Wall /Zi>>
 )
 
-target_link_libraries(lace PUBLIC pthread)
-target_link_libraries(lace14 PUBLIC pthread)
+find_package(Threads REQUIRED)
+target_link_libraries(lace PUBLIC Threads::Threads)
+target_link_libraries(lace14 PUBLIC Threads::Threads)
 
 if(LACE_USE_HWLOC)
     find_package(HWLOC REQUIRED)

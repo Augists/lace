@@ -18,21 +18,20 @@ endmacro(set_compilation_settings)
 macro(add_lace_benchmark NAME)
     add_executable(${NAME} ${ARGN})
     target_link_libraries(${NAME} PRIVATE lace::lace)
-    target_link_libraries(${NAME} PRIVATE pthread)
     set_compilation_settings(${NAME})
 endmacro(add_lace_benchmark)
 
 macro(add_lace14_benchmark NAME)
     add_executable(${NAME} ${ARGN})
     target_link_libraries(${NAME} PRIVATE lace::lace14)
-    target_link_libraries(${NAME} PRIVATE pthread)
     set_compilation_settings(${NAME})
 endmacro(add_lace14_benchmark)
 
 macro(add_seq_benchmark NAME)
     add_executable(${NAME} ${ARGN})
     if (WIN32)
-        target_link_libraries(${NAME} PRIVATE pthread) # for Windows compatibility :(
+        find_package(Threads REQUIRED)
+        target_link_libraries(${NAME} PRIVATE Threads::Threads) # for Windows compatibility :(
     endif (WIN32)
     set_compilation_settings(${NAME})
 endmacro(add_seq_benchmark)
