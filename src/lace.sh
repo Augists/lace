@@ -61,9 +61,14 @@ extern "C" {
 #include <lace_config.h>
 
 // Architecture configuration
-#ifndef LACE_CACHE_LINE_SIZE
-// Override LACE_CACHE_LINE_SIZE (e.g., with -DLACE_CACHE_LINE_SIZE=128) if targeting certain architectures.
-#define LACE_CACHE_LINE_SIZE 64
+
+// We add padding to some datastructures in order to avoid false sharing.
+// We just overapproximate the size of cache lines. On some modern machines,
+// cache lines are 128 bytes, so we pick that.
+// If needed, this can be overridden with -DLACE_PADDING_TARGET=256 for example
+// if targetting architectures that have even larger cache line sizes.
+#ifndef LACE_PADDING_TARGET
+#define LACE_PADDING_TARGET 128
 #endif
 
 // Forward declarations
@@ -280,8 +285,7 @@ typedef struct _lace_task {
     char d[LACE_TASKSIZE];
 } lace_task;
 
-static_assert(LACE_CACHE_LINE_SIZE % 64 == 0, "LACE_CACHE_LINE_SIZE must be a multiple of 64");
-static_assert((sizeof(lace_task) % LACE_CACHE_LINE_SIZE) == 0, "lace_task size should be a multiple of LACE_CACHE_LINE_SIZE");
+static_assert(LACE_PADDING_TARGET % 32 == 0, "LACE_PADDING_TARGET must be a multiple of 32");
 
 typedef union {
     struct {
@@ -307,7 +311,7 @@ typedef struct _lace_worker_public {
     TailSplit ts;
     uint8_t allstolen;
 
-    alignas(LACE_CACHE_LINE_SIZE) uint8_t movesplit;
+    alignas(LACE_PADDING_TARGET) uint8_t movesplit;
 } lace_worker_public;
 
 typedef struct _lace_worker {
@@ -570,7 +574,7 @@ void lace_abort_stack_overflow(void) __attribute__((noreturn));
 typedef struct
 {
     _Atomic(lace_task*) t;
-    char pad[LACE_CACHE_LINE_SIZE-sizeof(lace_task *)];
+    char pad[LACE_PADDING_TARGET-sizeof(lace_task *)];
 } lace_newframe_t;
 
 extern lace_newframe_t lace_newframe;

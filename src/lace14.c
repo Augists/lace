@@ -19,6 +19,7 @@
 #define _GNU_SOURCE
 #include <errno.h> // for errno
 #include <sched.h> // for sched_getaffinity
+#include <stddef.h> // for size_t
 #include <stdio.h>  // for fprintf
 #include <stdlib.h> // for memalign, malloc
 #include <string.h> // for memset
@@ -67,6 +68,64 @@ static unsigned int n_pus;
 #endif
 
 /**
+ * Little helper to get cache line size
+ */
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+
+size_t get_cache_line_size(void)
+{
+    DWORD buffer_size = 0;
+    GetLogicalProcessorInformation(NULL, &buffer_size);
+    SYSTEM_LOGICAL_PROCESSOR_INFORMATION *buffer = malloc(buffer_size);
+    if (!buffer) return 64;
+
+    if (!GetLogicalProcessorInformation(buffer, &buffer_size)) {
+        free(buffer);
+        return 64;
+    }
+
+    size_t line_size = 0;
+    for (DWORD i = 0; i < buffer_size / sizeof(*buffer); i++) {
+        if (buffer[i].Relationship == RelationCache &&
+            buffer[i].Cache.Level == 1) {
+            line_size = buffer[i].Cache.LineSize;
+            break;
+        }
+    }
+
+    free(buffer);
+    return line_size ? line_size : 64;
+}
+#elif defined(__APPLE__)
+size_t get_cache_line_size(void)
+{
+    #include <sys/sysctl.h>
+
+    size_t line_size = 0;
+    size_t size = sizeof(line_size);
+    if (sysctlbyname("hw.cachelinesize", &line_size, &size, NULL, 0) == 0 && line_size != 0) {
+        return line_size;
+    }
+    return 64;
+}
+#elif defined(__linux__)
+size_t get_cache_line_size(void)
+{
+    long line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+    return (line_size > 0) ? (size_t)line_size : 64;
+}
+#else
+size_t get_cache_line_size(void)
+{
+    // Unknown platform, fall back to a safe default
+    return 64;
+}
+#endif
+
+static size_t cache_line_size;
+
+/**
  * (public) Worker data
  */
 static lace_worker_public **workers = NULL;
@@ -94,8 +153,8 @@ static unsigned int n_workers = 0;
  */
 typedef struct {
     lace_worker_public worker_public;
-    alignas(LACE_CACHE_LINE_SIZE) lace_worker worker_private;
-    alignas(LACE_CACHE_LINE_SIZE) lace_task deque[];
+    alignas(LACE_PADDING_TARGET) lace_worker worker_private;
+    alignas(LACE_PADDING_TARGET) lace_task deque[];
 } worker_data;
 
 /**
@@ -180,9 +239,9 @@ us_elapsed(void)
  * Lace barrier implementation, that synchronizes on all workers.
  */
 typedef struct {
-    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) count;
-    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) leaving;
-    atomic_int __attribute__((aligned(LACE_CACHE_LINE_SIZE))) wait;
+    atomic_int __attribute__((aligned(LACE_PADDING_TARGET))) count;
+    atomic_int __attribute__((aligned(LACE_PADDING_TARGET))) leaving;
+    atomic_int __attribute__((aligned(LACE_PADDING_TARGET))) wait;
 } barrier_t;
 
 barrier_t lace_bar;
@@ -312,11 +371,11 @@ lace_init_worker(unsigned int worker)
     }
 #else
 #if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
-    workers_memory[worker] = _aligned_malloc(workers_memory_size, LACE_CACHE_LINE_SIZE);
+    workers_memory[worker] = _aligned_malloc(workers_memory_size, cache_line_size);
 #elif defined(__MINGW32__)
-    workers_memory[worker] = __mingw_aligned_malloc(workers_memory_size, LACE_CACHE_LINE_SIZE);
+    workers_memory[worker] = __mingw_aligned_malloc(workers_memory_size, cache_line_size);
 #else
-    workers_memory[worker] = aligned_alloc(LACE_CACHE_LINE_SIZE, workers_memory_size);
+    workers_memory[worker] = aligned_alloc(cache_line_size, workers_memory_size);
 #endif
     if (workers_memory[worker] == 0) {
         fprintf(stderr, "Lace error: Unable to allocate memory for the Lace worker!\n");
@@ -696,6 +755,22 @@ lace_start(unsigned int _n_workers, size_t dequesize, size_t stacksize)
 #endif
 #endif
 
+    cache_line_size = get_cache_line_size();
+    size_t task_size = sizeof(lace_task);
+    if (cache_line_size % task_size != 0 && task_size % cache_line_size != 0) {
+        // typical values of task_size: 32, 64, 128...
+        // lace14.h on 32-bit: 32 bytes; lace14.h on 64-bit: 64 bytes
+        // lace14.h on 32-bit: 64 bytes; lace14.h on 64-bit: 128 bytes
+        // typical values of cache_line_size: 32, 64, 128...
+        // for example some ARM chips have a 32-byte cache line size
+        // and some modern ARM chips have a 128-byte cache line size like Apple's CPUs
+        // if not aligned, this will result in excessive false sharing and therefore
+        // significant performance loss
+
+        fprintf(stderr, "Lace warning: task size %zu and cache line size %zu may be unaligned!\n",
+            task_size, cache_line_size);
+    }
+
     // Initialize globals
     n_workers = _n_workers == 0 ? n_pus : _n_workers;
     dqsize = dequesize > 0 ? dequesize : 100000;
@@ -754,21 +829,21 @@ lace_start(unsigned int _n_workers, size_t dequesize, size_t stacksize)
     lace_awaken_count = 0;
 
     // Allocate array with all workers
-    // first make sure that the amount to allocate (n_workers times pointer) is a multiple of LACE_CACHE_LINE_SIZE
+    // first make sure that the amount to allocate (n_workers times pointer) is a multiple of cache_line_size
     size_t to_allocate = n_workers * sizeof(void*);
-    to_allocate = (to_allocate+LACE_CACHE_LINE_SIZE-1) & (~(LACE_CACHE_LINE_SIZE-1));
+    to_allocate = (to_allocate+cache_line_size-1) & (~(cache_line_size-1));
 #if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
-    workers = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
-    workers_p = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
-    workers_memory = _aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers = _aligned_malloc(to_allocate, cache_line_size);
+    workers_p = _aligned_malloc(to_allocate, cache_line_size);
+    workers_memory = _aligned_malloc(to_allocate, cache_line_size);
 #elif defined(__MINGW32__)
-    workers = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
-    workers_p = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
-    workers_memory = __mingw_aligned_malloc(to_allocate, LACE_CACHE_LINE_SIZE);
+    workers = __mingw_aligned_malloc(to_allocate, cache_line_size);
+    workers_p = __mingw_aligned_malloc(to_allocate, cache_line_size);
+    workers_memory = __mingw_aligned_malloc(to_allocate, cache_line_size);
 #else
-    workers = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
-    workers_p = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
-    workers_memory = aligned_alloc(LACE_CACHE_LINE_SIZE, to_allocate);
+    workers = aligned_alloc(cache_line_size, to_allocate);
+    workers_p = aligned_alloc(cache_line_size, to_allocate);
+    workers_memory = aligned_alloc(cache_line_size, to_allocate);
 #endif
     if (workers == 0 || workers_p == 0 || workers_memory == 0) {
         fprintf(stderr, "Lace error: unable to allocate memory for the workers!\n");
