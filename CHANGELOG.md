@@ -2,6 +2,19 @@
 
 All notable changes to Lace will be documented in this file.
 
+## [2.0.3] - 2025-08-04
+
+### Added
+
+- By default, Lace will now build with `-march=native` and with no PIC. This
+  can be controlled with CMake settings.
+
+### Changed
+
+- Improved handling of different sizes of pointers and cache lines on different
+  architectures, such as 32-bit vs 64-bit, and cache line sizes such as 32
+  bytes, 64 bytes and 128 bytes.
+
 ## [2.0.2] - 2025-08-01
 
 Technically this is an API-breaking change, but since we have practically few

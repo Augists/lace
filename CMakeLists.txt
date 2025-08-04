@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(lace
-    VERSION 2.0.1
+    VERSION 2.0.3
     DESCRIPTION "Lace, a work-stealing framework for multi-core fork-join parallelism"
     HOMEPAGE_URL "https://github.com/trolando/lace"
     LANGUAGES C CXX
@@ -54,21 +54,33 @@ target_include_directories(lace14
         $<INSTALL_INTERFACE:include>
 )
 
-target_compile_options(lace PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
-        -pipe -march=native
-        $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>>
-    $<$<CXX_COMPILER_ID:MSVC>:
-        $<$<CONFIG:Debug>:/Od /Wall /Zi>>
-)
+option(LACE_NATIVE_OPT "Enable -march=native for compiler optimizations" ON)
 
-target_compile_options(lace14 PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
-        -pipe -march=native
-        $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>>
-    $<$<CXX_COMPILER_ID:MSVC>:
-        $<$<CONFIG:Debug>:/Od /Wall /Zi>>
-)
+option(LACE_ENABLE_PIC "Build Lace with -fPIC (e.g. for linking into shared libs)" OFF)
+set_target_properties(lace PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
+set_target_properties(lace14 PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
+
+if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(lace PRIVATE
+        $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>
+        $<$<CONFIG:Release>:-pipe>
+        $<$<BOOL:${LACE_NATIVE_OPT}>:-march=native>
+    )
+
+    target_compile_options(lace14 PRIVATE
+        $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>
+        $<$<CONFIG:Release>:-pipe>
+        $<$<BOOL:${LACE_NATIVE_OPT}>:-march=native>
+    )
+elseif(MSVC)
+    target_compile_options(lace PRIVATE
+        $<$<CONFIG:Debug>:/Od /Wall /Zi>
+    )
+
+    target_compile_options(lace14 PRIVATE
+        $<$<CONFIG:Debug>:/Od /Wall /Zi>
+    )
+endif()
 
 find_package(Threads REQUIRED)
 target_link_libraries(lace PUBLIC Threads::Threads)
