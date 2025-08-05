@@ -15,6 +15,7 @@ pointers and maybe a 32-byte cache line, `lace32` might perform a bit better.
 
 - By default, Lace will now build with `-march=native` and with no PIC. This
   can be controlled with CMake settings.
+- A test program for `lace_barrier` called `test_barrier`.
 
 ### Changed
 
@@ -29,6 +30,7 @@ pointers and maybe a 32-byte cache line, `lace32` might perform a bit better.
 - The benchmarks now use an `int` for the return value of `getopt` rather than
   a `char`. On some systems, a `char` is `unsigned` by default, so we need to
   have `int` to compare to `-1`.
+- Addressed potential problems with `lace_barrier` and weak memory systems.
 
 ## [2.0.2] - 2025-08-01
 
