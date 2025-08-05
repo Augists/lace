@@ -4,6 +4,13 @@ All notable changes to Lace will be documented in this file.
 
 ## [2.0.3] - 2025-08-05
 
+In addition to the API-breaking change in 2.0.2, since we're still barely into
+2.0 anyway, I'm going to change the naming for lace14. Now, we have `lace.h`
+which has 64-byte task structs, then `lace32.h` has 32-byte task structs and
+`lace128.h` has 128-byte task structs. On a 64-bit system with 8-byte pointers,
+it is likely that `lace32` is too small, but on 32-bit systems with 4-byte
+pointers and maybe a 32-byte cache line, `lace32` might perform a bit better.
+
 ### Added
 
 - By default, Lace will now build with `-march=native` and with no PIC. This
