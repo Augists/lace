@@ -1,7 +1,7 @@
 #! /bin/bash
 
-# Minimum number of task parameters: 2
-if [ "$1" -le 1 ] ; then k=2; else k=$1; fi
+nparams=$1
+tasksize=$2
 
 # Copyright notice:
 echo "/* 
@@ -69,6 +69,14 @@ extern "C" {
 // if targetting architectures that have even larger cache line sizes.
 #ifndef LACE_PADDING_TARGET
 #define LACE_PADDING_TARGET 128
+#endif
+
+/* The size is in bytes. Note that includes the common fields, so that leaves a little less space
+   for the task and parameters. Typically tasksize is 64 for lace.h and 128 for lace14.h. If the
+   size of a pointer is 32/64 bits (4/8 bytes) then this leaves 56/48 bytes for parameters of the
+   task and the return value. */
+#ifndef LACE_TASKSIZE
+#define LACE_TASKSIZE ('$tasksize')
 #endif
 
 // Forward declarations
@@ -231,13 +239,6 @@ static inline __attribute__((unused)) void lace_count_report(void)
  * Internals
  **************************************/
 
-/* The size is in bytes. Note that this is without the extra overhead from Lace.
-   The value must be greater than or equal to the maximum size of your tasks.
-   The task size is the maximum of the size of the result or of the sum of the parameter sizes. */
-#ifndef LACE_TASKSIZE
-#define LACE_TASKSIZE ('$k')*sizeof(void*)
-#endif
-
 #ifndef LACE_COUNT_EVENTS
 #define LACE_COUNT_EVENTS (LACE_PIE_TIMES || LACE_COUNT_TASKS || LACE_COUNT_STEALS || LACE_COUNT_SPLITS)
 #endif
@@ -282,10 +283,11 @@ typedef enum {
 
 typedef struct _lace_task {
     TASK_COMMON_FIELDS(_lace_task)
-    char d[LACE_TASKSIZE];
+    char d[LACE_TASKSIZE-sizeof(void*)-sizeof(struct _lace_worker_public*)];
 } lace_task;
 
 static_assert(LACE_PADDING_TARGET % 32 == 0, "LACE_PADDING_TARGET must be a multiple of 32");
+static_assert(sizeof(lace_task) == '$tasksize', "A Lace task should be '$tasksize' bytes.");
 
 typedef union {
     struct {
@@ -615,7 +617,7 @@ int lace_sync(lace_worker *w, lace_task *head);
 # Create macros for each arity
 #
 
-for(( r = 0; r <= $k; r++ )) do
+for(( r = 0; r <= $nparams; r++ )) do
 
 # Extend various argument lists
 if ((r)); then
@@ -681,7 +683,7 @@ typedef struct _TD_##NAME {
   $UNION
 } TD_##NAME;
 
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), \"TD_\" #NAME \" is too large, set LACE_TASKSIZE to a higher value!\");
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), \"TD_\" #NAME \" is too large to fit in the lace_task struct!\");
 
 $RTYPE NAME##_CALL(lace_worker*$DECL_ARGS);
 

@@ -64,6 +64,14 @@ extern "C" {
 #define LACE_PADDING_TARGET 128
 #endif
 
+/* The size is in bytes. Note that includes the common fields, so that leaves a little less space
+   for the task and parameters. Typically tasksize is 64 for lace.h and 128 for lace14.h. If the
+   size of a pointer is 32/64 bits (4/8 bytes) then this leaves 56/48 bytes for parameters of the
+   task and the return value. */
+#ifndef LACE_TASKSIZE
+#define LACE_TASKSIZE (64)
+#endif
+
 // Forward declarations
 typedef struct _lace_worker lace_worker;
 typedef struct _lace_task lace_task;
@@ -224,13 +232,6 @@ static inline __attribute__((unused)) void lace_count_report(void)
  * Internals
  **************************************/
 
-/* The size is in bytes. Note that this is without the extra overhead from Lace.
-   The value must be greater than or equal to the maximum size of your tasks.
-   The task size is the maximum of the size of the result or of the sum of the parameter sizes. */
-#ifndef LACE_TASKSIZE
-#define LACE_TASKSIZE (6)*sizeof(void*)
-#endif
-
 #ifndef LACE_COUNT_EVENTS
 #define LACE_COUNT_EVENTS (LACE_PIE_TIMES || LACE_COUNT_TASKS || LACE_COUNT_STEALS || LACE_COUNT_SPLITS)
 #endif
@@ -275,10 +276,11 @@ typedef enum {
 
 typedef struct _lace_task {
     TASK_COMMON_FIELDS(_lace_task)
-    char d[LACE_TASKSIZE];
+    char d[LACE_TASKSIZE-sizeof(void*)-sizeof(struct _lace_worker_public*)];
 } lace_task;
 
 static_assert(LACE_PADDING_TARGET % 32 == 0, "LACE_PADDING_TARGET must be a multiple of 32");
+static_assert(sizeof(lace_task) == 64, "A Lace task should be 64 bytes.");
 
 typedef union {
     struct {
@@ -614,7 +616,7 @@ typedef struct _TD_##NAME {                                                     
   union {  RTYPE res; } d;                                                            \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*);                                                      \
                                                                                       \
@@ -750,7 +752,7 @@ typedef struct _TD_##NAME {                                                     
                                                                                       \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*);                                                       \
                                                                                       \
@@ -889,7 +891,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; } args; RTYPE res; } d;                            \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1);                                             \
                                                                                       \
@@ -1025,7 +1027,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; } args; } d;                                       \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1);                                              \
                                                                                       \
@@ -1164,7 +1166,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; } args; RTYPE res; } d;             \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2);                                    \
                                                                                       \
@@ -1300,7 +1302,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; } args; } d;                        \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2);                                     \
                                                                                       \
@@ -1439,7 +1441,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; } args; RTYPE res; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3);                           \
                                                                                       \
@@ -1575,7 +1577,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; } args; } d;         \
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3);                            \
                                                                                       \
@@ -1714,7 +1716,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; } args; RTYPE res; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4);                  \
                                                                                       \
@@ -1850,7 +1852,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; } args; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4);                   \
                                                                                       \
@@ -1989,7 +1991,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; ATYPE_5 arg_5; } args; RTYPE res; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4, ATYPE_5);         \
                                                                                       \
@@ -2125,7 +2127,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; ATYPE_5 arg_5; } args; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4, ATYPE_5);          \
                                                                                       \
@@ -2264,7 +2266,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; ATYPE_5 arg_5; ATYPE_6 arg_6; } args; RTYPE res; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 RTYPE NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4, ATYPE_5, ATYPE_6);\
                                                                                       \
@@ -2400,7 +2402,7 @@ typedef struct _TD_##NAME {                                                     
   union { struct {  ATYPE_1 arg_1; ATYPE_2 arg_2; ATYPE_3 arg_3; ATYPE_4 arg_4; ATYPE_5 arg_5; ATYPE_6 arg_6; } args; } d;\
 } TD_##NAME;                                                                          \
                                                                                       \
-static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large, set LACE_TASKSIZE to a higher value!");\
+static_assert(sizeof(TD_##NAME) <= sizeof(lace_task), "TD_" #NAME " is too large to fit in the lace_task struct!");\
                                                                                       \
 void NAME##_CALL(lace_worker*, ATYPE_1, ATYPE_2, ATYPE_3, ATYPE_4, ATYPE_5, ATYPE_6); \
                                                                                       \
