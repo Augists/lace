@@ -2,7 +2,7 @@
 
 All notable changes to Lace will be documented in this file.
 
-## [2.0.3] - 2025-08-04
+## [2.0.3] - 2025-08-05
 
 ### Added
 
@@ -14,6 +14,14 @@ All notable changes to Lace will be documented in this file.
 - Improved handling of different sizes of pointers and cache lines on different
   architectures, such as 32-bit vs 64-bit, and cache line sizes such as 32
   bytes, 64 bytes and 128 bytes.
+- The `lace.h` header now allows tasks with up to 10 parameters, as long as
+  they still fit in the 64-byte tasks. This is checked during compilation.
+
+### Fixed
+
+- The benchmarks now use an `int` for the return value of `getopt` rather than
+  a `char`. On some systems, a `char` is `unsigned` by default, so we need to
+  have `int` to compare to `-1`.
 
 ## [2.0.2] - 2025-08-01
 
