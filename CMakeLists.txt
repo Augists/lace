@@ -29,16 +29,22 @@ add_library(lace STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lace.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lace.h
 )
-add_library(lace14 STATIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace14.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace14.h
+add_library(lace32 STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace32.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace32.h
+)
+add_library(lace128 STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace128.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lace128.h
 )
 
 add_library(lace::lace ALIAS lace)
-add_library(lace::lace14 ALIAS lace14)
+add_library(lace::lace32 ALIAS lace32)
+add_library(lace::lace128 ALIAS lace128)
 
 target_compile_features(lace PUBLIC c_std_11)
-target_compile_features(lace14 PUBLIC c_std_11)
+target_compile_features(lace32 PUBLIC c_std_11)
+target_compile_features(lace128 PUBLIC c_std_11)
 
 target_include_directories(lace
     PUBLIC
@@ -47,7 +53,14 @@ target_include_directories(lace
         $<INSTALL_INTERFACE:include>
 )
 
-target_include_directories(lace14
+target_include_directories(lace32
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(lace128
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
@@ -58,7 +71,8 @@ option(LACE_NATIVE_OPT "Enable -march=native for compiler optimizations" ON)
 
 option(LACE_ENABLE_PIC "Build Lace with -fPIC (e.g. for linking into shared libs)" OFF)
 set_target_properties(lace PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
-set_target_properties(lace14 PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
+set_target_properties(lace32 PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
+set_target_properties(lace128 PROPERTIES POSITION_INDEPENDENT_CODE ${LACE_ENABLE_PIC})
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(lace PRIVATE
@@ -67,7 +81,13 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
         $<$<BOOL:${LACE_NATIVE_OPT}>:-march=native>
     )
 
-    target_compile_options(lace14 PRIVATE
+    target_compile_options(lace32 PRIVATE
+        $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>
+        $<$<CONFIG:Release>:-pipe>
+        $<$<BOOL:${LACE_NATIVE_OPT}>:-march=native>
+    )
+
+    target_compile_options(lace128 PRIVATE
         $<$<CONFIG:Debug>:-O0 -Wall -Wextra -Wpedantic>
         $<$<CONFIG:Release>:-pipe>
         $<$<BOOL:${LACE_NATIVE_OPT}>:-march=native>
@@ -77,22 +97,29 @@ elseif(MSVC)
         $<$<CONFIG:Debug>:/Od /Wall /Zi>
     )
 
-    target_compile_options(lace14 PRIVATE
+    target_compile_options(lace32 PRIVATE
+        $<$<CONFIG:Debug>:/Od /Wall /Zi>
+    )
+
+    target_compile_options(lace128 PRIVATE
         $<$<CONFIG:Debug>:/Od /Wall /Zi>
     )
 endif()
 
 find_package(Threads REQUIRED)
 target_link_libraries(lace PUBLIC Threads::Threads)
-target_link_libraries(lace14 PUBLIC Threads::Threads)
+target_link_libraries(lace32 PUBLIC Threads::Threads)
+target_link_libraries(lace128 PUBLIC Threads::Threads)
 
 if(LACE_USE_HWLOC)
     find_package(HWLOC REQUIRED)
     target_include_directories(lace PUBLIC ${HWLOC_INCLUDE_DIR})
-    target_include_directories(lace14 PUBLIC ${HWLOC_INCLUDE_DIR})
+    target_include_directories(lace32 PUBLIC ${HWLOC_INCLUDE_DIR})
+    target_include_directories(lace128 PUBLIC ${HWLOC_INCLUDE_DIR})
 
     target_link_libraries(lace PUBLIC ${HWLOC_LIBRARIES})
-    target_link_libraries(lace14 PUBLIC ${HWLOC_LIBRARIES})
+    target_link_libraries(lace32 PUBLIC ${HWLOC_LIBRARIES})
+    target_link_libraries(lace128 PUBLIC ${HWLOC_LIBRARIES})
 endif()
 
 set_target_properties(lace PROPERTIES
@@ -101,7 +128,13 @@ set_target_properties(lace PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin
 )
 
-set_target_properties(lace14 PROPERTIES
+set_target_properties(lace32 PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin
+)
+
+set_target_properties(lace128 PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin
@@ -127,7 +160,7 @@ endif()
 
 include(GNUInstallDirs)
 
-install(TARGETS lace lace14
+install(TARGETS lace lace32 lace128
     EXPORT lace-targets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -136,7 +169,8 @@ install(TARGETS lace lace14
 )
 install(FILES 
     "${CMAKE_CURRENT_SOURCE_DIR}/src/lace.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/lace14.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/lace32.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/lace128.h"
     "${CMAKE_CURRENT_BINARY_DIR}/lace_config.h"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -180,7 +214,8 @@ string(JOIN " " PC_EXTRA_LIBS ${_PC_EXTRA_LIBS})
 message(STATUS "Generated EXTRA_LIBS for .pc = ${PC_EXTRA_LIBS}")
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace.pc" @ONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace14.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace14.pc" @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace32.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace32.pc" @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/lace128.pc.in" "${CMAKE_CURRENT_BINARY_DIR}/lace128.pc" @ONLY)
 
 install(
     FILES
@@ -192,7 +227,8 @@ install(
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/lace.pc
-        ${CMAKE_CURRENT_BINARY_DIR}/lace14.pc
+        ${CMAKE_CURRENT_BINARY_DIR}/lace32.pc
+        ${CMAKE_CURRENT_BINARY_DIR}/lace128.pc
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )   
 

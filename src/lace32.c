@@ -48,7 +48,7 @@ typedef semaphore_t sem_t;
 #include <semaphore.h> // for sem_*
 #endif
 
-#include <lace14.h>
+#include <lace32.h>
 
 #if LACE_USE_MMAP
 #include <sys/mman.h> // for mmap, etc

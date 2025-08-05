@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include <lace14.h>
+#include <lace128.h>
 
 #define BLOCK_EDGE 16
 #define BLOCK_SIZE (BLOCK_EDGE * BLOCK_EDGE)
