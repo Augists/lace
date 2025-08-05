@@ -3,14 +3,17 @@
 `lace.h` provides the public API for initializing, controlling, and interacting
 with the Lace framework for fine-grained fork-join parallelism.
 
-There are two versions of Lace. The standard version uses 64 bytes per task and
-allows up to 6 parameters. The "14" version uses 128 bytes per task and allows
-up to 14 parameters.
+There are three versions of Lace. The standard version uses 64 bytes per task
+and allows up to 10 parameters. The "32" version uses 32 bytes per task and
+also allows up to 10 parameters. The "128" version uses 128 bytes per task and
+allows up to 14 parameters.
 
 - To use the default version, include `lace.h` and add `lace.c` to your build
   script.
-- To use the "14" version, include `lace14.h` and add `lace14.c` to your build
+- To use the "32" version, include `lace32.h` and add `lace32.c` to your build
   script.
+- To use the "128" version, include `lace128.h` and add `lace128.c` to your
+  build script.
 
 ---
 
