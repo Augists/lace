@@ -3,7 +3,7 @@
 #include <time.h>
 #include <getopt.h>
 
-#include <lace.h>
+#include <lace32.h>
 
 TASK_1(int, pfib, int, n)
 

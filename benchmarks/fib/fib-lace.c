@@ -1,8 +1,9 @@
-#include "lace.h"
 #include <stdio.h> // for printf, fprintf
 #include <stdlib.h> // for exit, atoi
 #include <time.h>
 #include <getopt.h>
+
+#include <lace32.h>
 
 TASK_1(int, pfib, int, n)
 

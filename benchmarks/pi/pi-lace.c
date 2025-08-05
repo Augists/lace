@@ -1,9 +1,10 @@
-#include "lace.h"
 #include <math.h>
 #include <stdio.h> // for printf, fprintf
 #include <stdlib.h> // for exit, atol
 #include <time.h>
 #include <getopt.h>
+
+#include <lace32.h>
 
 static __thread unsigned int seed = 0;
 
