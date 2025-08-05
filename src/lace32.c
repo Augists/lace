@@ -252,17 +252,20 @@ barrier_t lace_bar;
 void
 lace_barrier()
 {
-    int wait = lace_bar.wait;
-    if ((int)n_workers == 1+(atomic_fetch_add_explicit(&lace_bar.count, 1, memory_order_relaxed))) {
-        // we know for sure no other thread can be here
+    int wait = atomic_load_explicit(&lace_bar.wait, memory_order_relaxed);
+    if ((int)n_workers == 1 + atomic_fetch_add_explicit(&lace_bar.count, 1, memory_order_acq_rel)) {
+        // This thread is the last to arrive (the leader)
         atomic_store_explicit(&lace_bar.count, 0, memory_order_relaxed);
         atomic_store_explicit(&lace_bar.leaving, n_workers, memory_order_relaxed);
-        // flip wait
-        atomic_store_explicit(&lace_bar.wait, 1-wait, memory_order_relaxed);
+        atomic_store_explicit(&lace_bar.wait, 1 - wait, memory_order_release);
     } else {
-        while (wait == lace_bar.wait) {} // wait
+        // Wait until leader flips the wait value
+        while (atomic_load_explicit(&lace_bar.wait, memory_order_acquire) == wait) {
+            // possibly pause/yield
+        }
     }
-    lace_bar.leaving -= 1;
+    // Needed for lace_barrier_destroy to observe all threads have exited
+    atomic_fetch_sub_explicit(&lace_bar.leaving, 1, memory_order_release);
 }
 
 /**
@@ -280,8 +283,9 @@ lace_barrier_init()
 static void
 lace_barrier_destroy()
 {
-    // wait for all to exit
-    while (lace_bar.leaving != 0) continue;
+    while (atomic_load_explicit(&lace_bar.leaving, memory_order_acquire) > 0) {
+        // possibly pause/yield
+    }
 }
 
 /**
