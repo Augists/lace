@@ -648,8 +648,14 @@ void lace_steal_loop_CALL(lace_worker* lace_worker, atomic_int* quit)
 
     unsigned int n = n_workers;
     int i=0;
+#if LACE_BACKOFF
+    unsigned int backoff=0;
+#endif
 
     while(*quit == 0) {
+#if LACE_BACKOFF
+        backoff++;
+#endif
         if (n > 1) {
             // Select victim
             if( i>0 ) {
@@ -667,8 +673,15 @@ void lace_steal_loop_CALL(lace_worker* lace_worker, atomic_int* quit)
             lace_worker_public *res = lace_steal(lace_worker, *victim);
             if (res == LACE_STOLEN) {
                 PR_COUNTSTEALS(lace_worker, CTR_steals);
+#if LACE_BACKOFF
+                backoff = 0;
+#endif
             } else if (res == LACE_BUSY) {
                 PR_COUNTSTEALS(lace_worker, CTR_steal_busy);
+#if LACE_BACKOFF
+                backoff = 0;
+#endif
+            } else { // LACE_NOWORK
             }
         }
 
@@ -676,6 +689,9 @@ void lace_steal_loop_CALL(lace_worker* lace_worker, atomic_int* quit)
 
         if (__builtin_expect(atomic_load_explicit(&external_task, memory_order_acquire) != 0, 0)) {
             lace_steal_external(lace_get_worker());
+#if LACE_BACKOFF
+            backoff = 0;
+#endif
         }
 
         if (__builtin_expect(atomic_load_explicit(&must_suspend, memory_order_acquire), 0)) {
@@ -683,7 +699,24 @@ void lace_steal_loop_CALL(lace_worker* lace_worker, atomic_int* quit)
             sem_wait(&suspend_semaphore);
             lace_barrier(); // ensure we're all back before continuing
             workers_running += 1;
+#if LACE_BACKOFF
+            backoff = 0;
+#endif
         }
+
+#if LACE_BACKOFF
+        if (backoff > 1000) { // only back off after 1000 attempts
+            int delay_us = (1 << ((backoff-1000)/5)); // exponential backoff
+            if (delay_us > 5000) delay_us = 5000; // cap at 5ms
+#if LACE_PIE_TIMES
+            uint64_t prev = lace_gethrtime();
+#endif
+            lace_sleep_us(delay_us);
+#if LACE_PIE_TIMES
+            PR_ADD(lace_worker,CTR_backoff, lace_gethrtime()-prev);
+#endif
+        }
+#endif
     }
 }
 
@@ -1052,6 +1085,7 @@ lace_count_report_file(FILE *file)
         fprintf(file, "Leap overhead (%d):   %10.2f ms\n", i, (workers_p[i]->ctr[CTR_lstealsucc]+workers_p[i]->ctr[CTR_lsignal]) / dcpm);
         fprintf(file, "Steal search (%d):    %10.2f ms\n", i, (workers_p[i]->ctr[CTR_wsteal]-workers_p[i]->ctr[CTR_wstealsucc]-workers_p[i]->ctr[CTR_wsignal]) / dcpm);
         fprintf(file, "Leap search (%d):     %10.2f ms\n", i, (workers_p[i]->ctr[CTR_lsteal]-workers_p[i]->ctr[CTR_lstealsucc]-workers_p[i]->ctr[CTR_lsignal]) / dcpm);
+        fprintf(file, "Backoff time (%d):    %10.2f ms\n", i, workers_p[i]->ctr[CTR_backoff] / dcpm);
         fprintf(file, "Exit time (%d):       %10.2f ms\n", i, workers_p[i]->ctr[CTR_close] / dcpm);
         fprintf(file, "\n");
     }
@@ -1063,6 +1097,7 @@ lace_count_report_file(FILE *file)
     fprintf(file, "Leap overhead (sum):   %10.2f ms\n", (ctr_all[CTR_lstealsucc]+ctr_all[CTR_lsignal]) / dcpm);
     fprintf(file, "Steal search (sum):    %10.2f ms\n", (ctr_all[CTR_wsteal]-ctr_all[CTR_wstealsucc]-ctr_all[CTR_wsignal]) / dcpm);
     fprintf(file, "Leap search (sum):     %10.2f ms\n", (ctr_all[CTR_lsteal]-ctr_all[CTR_lstealsucc]-ctr_all[CTR_lsignal]) / dcpm);
+    fprintf(file, "Backoff time (sum):    %10.2f ms\n", ctr_all[CTR_backoff] / dcpm);
     fprintf(file, "Exit time (sum):       %10.2f ms\n", ctr_all[CTR_close] / dcpm);
     fprintf(file, "\n" );
 #endif
@@ -1485,4 +1520,10 @@ lace_drop(lace_worker *_lace_worker)
     }
     lace_drop_slow(_lace_worker, lace_head);
 }
+
+#if defined(_WIN32)
+void lace_sleep_us(int microseconds) {
+    Sleep((microseconds + 999) / 1000); // Sleep takes ms
+}
+#endif
 

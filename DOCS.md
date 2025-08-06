@@ -129,10 +129,12 @@ If `LACE_USE_MMAP` is set, then the queue is preallocated in virtual memory, and
 real memory is allocated by the OS on demand.  If `LACE_USE_HWLOC` is set, the
 worker threads will pin to a CPU core.
 
-Lace workers busy-wait for tasks to steal, increasing the CPU load to 100%.  Use
-`lace_suspend` and `lace_resume` (in a non-Lace thread) to temporarily stop the
-work-stealing framework.  Suspending and resuming typically requires less than 1
-ms.
+Lace workers busy-wait for tasks to steal, increasing the CPU load to 100%.
+Use `lace_suspend` and `lace_resume` (in a non-Lace thread) to temporarily stop
+the work-stealing framework.  Suspending and resuming typically requires less
+than 1 ms. If `LACE_BACKOFF` is `ON`, then the CPU load typically drops to 0%
+after roughly one second of no work, and `lace_suspend` and `lace_resume` may
+not be needed.
 
 ---
 
@@ -280,3 +282,13 @@ Print current Lace statistics to the given `FILE*`.
 ### `void lace_count_report(void);`
 
 Shortcut to print statistics to `stdout`.
+
+---
+
+## Miscellaneous
+
+### `void lace_sleep_us(int microseconds)`
+
+Let the current thread sleep for the given number of microseconds. Only works
+properly on Linux and macOS, and will round up to whole milliseconds on
+Windows.

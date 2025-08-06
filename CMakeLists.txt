@@ -13,6 +13,7 @@ option(LACE_PIE_TIMES "Let Lace record Pie times" OFF)
 option(LACE_COUNT_TASKS "Let Lace record the number of tasks" OFF)
 option(LACE_COUNT_STEALS "Let Lace count #steals and #leaps" OFF)
 option(LACE_COUNT_SPLITS "Let Lace count #splits" OFF)
+option(LACE_BACKOFF "Let idle threads sleep if there is no work" ON)
 option(LACE_USE_HWLOC "Let Lace pin threads/memory using libhwloc" OFF)
 option(LACE_USE_MMAP "Let Lace use mmap to allocate memory" ON)
 

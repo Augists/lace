@@ -236,6 +236,25 @@ static inline __attribute__((unused)) void lace_count_report(void)
 }
 
 /**************************************
+ * Miscellaneous
+ * - lace_sleep_us
+ **************************************/
+
+#if defined(_WIN32)
+// not inline, because we do not want to pull in windows.h here
+// also Windows sleep has a ms resolution, so it is not very practical anyway...
+void lace_sleep_us(int microseconds);
+#else
+#include <time.h>
+static inline void lace_sleep_us(int microseconds) {
+    struct timespec ts;
+    ts.tv_sec = microseconds / 1000000;
+    ts.tv_nsec = (microseconds % 1000000) * 1000;
+    nanosleep(&ts, NULL);
+}
+#endif
+
+/**************************************
  * Internals
  **************************************/
 
@@ -273,6 +292,7 @@ typedef enum {
     CTR_lstealsucc,  /* Timer for succesful steal code (leap) */
     CTR_wsignal,     /* Timer for signal after work (steal) */
     CTR_lsignal,     /* Timer for signal after work (leap) */
+    CTR_backoff,     /* Timer for backoff */
 #endif
     CTR_MAX
 } CTR_index;

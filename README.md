@@ -49,9 +49,10 @@ For more examples, see [DOCS.md](./DOCS.md) and the contents of the [benchmarks]
 
 - ⚡ Low-overhead, lock-free work-stealing
 - 💤 Suspend and resume workers to save CPU time
+- 🕒 Exponential backoff to save CPU time
 - 📌 Optional thread pinning with `hwloc`
-- 📊 Low-overhead statistics per worker
-- ⏭️ Interrupt support (e.g. for garbage collection, or initialisation)
+- 📈 Low-overhead statistics per worker
+- ⛔ Interrupt support (e.g. for garbage collection, or initialisation)
 
 Lace uses a **scalable** double-ended queue for its implementation of work-stealing, which is **wait-free** for the thread spawning tasks and **lock-free** for the threads stealing tasks. The design of the datastructure minimizes interaction between CPUs.
 Lace can report the number of tasks, steals and queue splits per Lace worker. It can also report the amount of time spent in startup/shutdown, performing stolen work, overhead of stealing and of searching for work, per worker. Gathering these statistics is done with virtually no overhead.
@@ -114,12 +115,15 @@ Setting | Description
 `LACE_COUNT_STEALS` | Let Lace count how often tasks were stolen
 `LACE_COUNT_SPLITS` | Let Lace count how often the queue split point was moved
 `LACE_PIE_TIMES` | Let Lace record precise overhead times
+`LACE_BACKOFF` | Let Lace workers sleep when there is no work to steal
 
 **Recommendations**:
 
 - Use `LACE_USE_MMAP` to reduce physical memory usage. Memory is allocated 
   lazily by the OS.
 - Use `LACE_USE_HWLOC` to ensure threads are pinned to CPU cores appropriately.
+- Leave `LACE_BACKOFF` on as benchmarks show that this does not affect
+  performance.
 
 ## Usage
 
