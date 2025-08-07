@@ -657,17 +657,7 @@ void lace_steal_loop_CALL(lace_worker* lace_worker, atomic_int* quit)
         backoff++;
 #endif
         if (n > 1) {
-            // Select victim
-            if( i>0 ) {
-                i--;
-                victim++;
-                if (victim == self) victim++;
-                if (victim >= workers + n) victim = workers;
-                if (victim == self) victim++;
-            } else {
-                i = lace_rng(lace_worker) % 40;
-                victim = workers + ((lace_rng(lace_worker) % (n-1)) + worker_id + 1) % n;
-            }
+            victim = workers + ((lace_rng(lace_worker) % (n-1)) + worker_id + 1) % n;
 
             PR_COUNTSTEALS(lace_worker, CTR_steal_tries);
             lace_worker_public *res = lace_steal(lace_worker, *victim);
