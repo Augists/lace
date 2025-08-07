@@ -8,12 +8,17 @@ and allows up to 10 parameters. The "32" version uses 32 bytes per task and
 also allows up to 10 parameters. The "128" version uses 128 bytes per task and
 allows up to 14 parameters.
 
-- To use the default version, include `lace.h` and add `lace.c` to your build
-  script.
-- To use the "32" version, include `lace32.h` and add `lace32.c` to your build
-  script.
-- To use the "128" version, include `lace128.h` and add `lace128.c` to your
-  build script.
+The "32" version is mainly intended for computers with a 32-byte cache line.
+For most modern computers, the standard version should be sufficient. In some
+cases, even 64 bytes is insufficient for tasks with many parameters and then
+the "128" version should be used.
+
+- To use the default version, include `lace.h` and add the library `lace::lace`
+  to your targets in CMakeLists.txt.
+- To use the "32" version, include `lace32.h` and add the library
+  `lace::lace32` to your targets.
+- To use the "128" version, include `lace128.h` and add the library
+  `lace::lace128` to your targets.
 
 ---
 
@@ -131,10 +136,12 @@ worker threads will pin to a CPU core.
 
 Lace workers busy-wait for tasks to steal, increasing the CPU load to 100%.
 Use `lace_suspend` and `lace_resume` (in a non-Lace thread) to temporarily stop
-the work-stealing framework.  Suspending and resuming typically requires less
-than 1 ms. If `LACE_BACKOFF` is `ON`, then the CPU load typically drops to 0%
-after roughly one second of no work, and `lace_suspend` and `lace_resume` may
-not be needed.
+the work-stealing framework.  If Lace is suspended and a task is offered to the
+framework, e.g. by calling `fib(40)`, then Lace is automatically resumed and
+suspended before and after execution of this task.  Suspending and resuming
+typically requires less than 1 ms. If `LACE_BACKOFF` is `ON`, then the CPU load
+typically drops to 0% after roughly one second of no work, and `lace_suspend`
+and `lace_resume` may not be needed.
 
 ---
 
