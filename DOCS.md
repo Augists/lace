@@ -173,6 +173,12 @@ Stop the Lace runtime.
 
 ---
 
+### `int lace_is_running(void);`
+
+Returns 1 if Lace is running, 0 otherwise.
+
+---
+
 ### `void lace_set_verbosity(int level);`
 
 Set verbosity level for Lace runtime. This should be set *before* calling `lace_start`.
@@ -294,7 +300,7 @@ Shortcut to print statistics to `stdout`.
 
 ## Miscellaneous
 
-### `void lace_sleep_us(int microseconds)`
+### `void lace_sleep_us(int microseconds);`
 
 Let the current thread sleep for the given number of microseconds. Only works
 properly on Linux and macOS, and will round up to whole milliseconds on

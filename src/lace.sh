@@ -121,6 +121,11 @@ void lace_resume(void);
  */
 void lace_stop(void);
 
+/**
+ * Check if Lace is running. Returns 1 if it does, or 0 otherwise.
+ */
+int lace_is_running(void);
+
 /**************************************
  * Worker context
  * - lace_worker_count

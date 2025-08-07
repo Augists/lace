@@ -177,6 +177,7 @@ static lace_worker **workers_p;
  */
 static atomic_int lace_quits = 0;
 static atomic_uint workers_running = 0;
+static int is_running = 0;
 
 /**
  * Thread-specific mechanism to access current worker data
@@ -955,6 +956,13 @@ lace_start(unsigned int _n_workers, size_t dequesize, size_t stacksize)
     lace_resume();
 
     pthread_attr_destroy(&worker_attr);
+
+    is_running = 1;
+}
+
+int lace_is_running(void)
+{
+    return is_running;
 }
 
 
@@ -1149,6 +1157,8 @@ void lace_stop()
     workers = 0;
     workers_p = 0;
     workers_memory = 0;
+
+    is_running = 0;
 }
 
 /**
